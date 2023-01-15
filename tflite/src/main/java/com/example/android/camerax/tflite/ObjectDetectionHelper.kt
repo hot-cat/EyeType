@@ -43,6 +43,7 @@ class ObjectDetectionHelper(private val tflite: Interpreter, private val labels:
     }
 
     fun predict(image: TensorImage): List<ObjectPrediction> {
+
         tflite.runForMultipleInputsOutputs(arrayOf(image.buffer), outputBuffer)
         return predictions
     }

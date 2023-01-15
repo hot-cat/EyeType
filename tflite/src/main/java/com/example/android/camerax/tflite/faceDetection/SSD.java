@@ -12,8 +12,8 @@ public final class SSD {
     public static final int[] strides = {8, 16, 16, 16};
     public static final float interpolatedScaleAspectRatio = 1.0f;
 
-    public static float[] ssdGenerateAnchors() {
-        List<Float> anchors = new ArrayList<>();
+    public static float[][] ssdGenerateAnchors() {
+        List<float[]> anchors = new ArrayList<>();
         int layerId = 0;
         int numLayers = SSD.numLayers;
         int[] strides = SSD.strides;
@@ -36,14 +36,13 @@ public final class SSD {
                 for (int x = 0; x < featureMapWidth; x++) {
                     float xCenter = (x + anchorOffsetX) / featureMapWidth;
                     for (int i = 0; i < repeats; i++) {
-                        anchors.add(xCenter);
-                        anchors.add(yCenter);
+                        anchors.add(new float[]{xCenter, yCenter});
                     }
                 }
             }
             layerId = lastSameStrideLayer;
         }
-        float[] anchorArray = new float[anchors.size()];
+        float[][] anchorArray = new float[anchors.size()][2];
         for (int i = 0; i < anchors.size(); i++) {
             anchorArray[i] = anchors.get(i);
         }

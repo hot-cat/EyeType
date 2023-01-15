@@ -22,6 +22,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.android.example.camerax.tflite.databinding.ActivityCameraBinding
+import com.example.android.camerax.tflite.faceDetection.FaceDetection
+import com.example.android.camerax.tflite.tools.types.Detection
+import com.example.android.camerax.tflite.tools.types.NMS
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.nnapi.NnApiDelegate
@@ -55,13 +58,14 @@ class CameraActivity : AppCompatActivity() {
     private var pauseAnalysis = false
     private var imageRotationDegrees: Int = 0
     private val tfImageBuffer = TensorImage(DataType.UINT8)
+    private val faceDetectionImageBuffer = TensorImage(DataType.FLOAT32)
 
     private val tfImageProcessor by lazy {
         val cropSize = minOf(bitmapBuffer.width, bitmapBuffer.height)
         ImageProcessor.Builder()
             .add(ResizeWithCropOrPadOp(cropSize, cropSize))
             .add(ResizeOp(
-                tfInputSize.height, tfInputSize.width, ResizeOp.ResizeMethod.NEAREST_NEIGHBOR))
+                128, 128, ResizeOp.ResizeMethod.NEAREST_NEIGHBOR))
             .add(Rot90Op(-imageRotationDegrees / 90))
             .add(NormalizeOp(0f, 1f))
             .build()
@@ -88,12 +92,57 @@ class CameraActivity : AppCompatActivity() {
         val inputShape = tflite.getInputTensor(inputIndex).shape()
         Size(inputShape[2], inputShape[1]) // Order of axis is: {1, height, width, 3}
     }
+    // made for porcessing the image for face detection model
+    private val tfImageFaceDetection by lazy {
+        val cropSize = minOf(bitmapBuffer.width, bitmapBuffer.height)
+        ImageProcessor.Builder()
+            .add(ResizeWithCropOrPadOp(cropSize, cropSize))
+            .add(ResizeOp(
+                128, 128, ResizeOp.ResizeMethod.NEAREST_NEIGHBOR))
+            .add(Rot90Op(-imageRotationDegrees / 90))
+            .add(NormalizeOp(0.5f, 0.5f))
+            .build()
+    }
+    //this is the tflite model loaded
+    private val faceDetection by lazy {
+        Interpreter(
+            FileUtil.loadMappedFile(this, "face_detection_front.tflite"),
+            Interpreter.Options().addDelegate(nnApiDelegate)
+        )
+    }
+    //this is the output of the tflite model for face detection
+     val outputMap: Map<Int, Array<Array<FloatArray>>> by lazy {
+        val shape0: IntArray = faceDetection.getOutputTensor(0).shape()
+        val output0 = Array(shape0[0]) { Array(shape0[1]) { FloatArray(shape0[2]) } }
+
+        val shape1: IntArray = faceDetection.getOutputTensor(1).shape()
+        val output1 = Array(shape1[0]) { Array(shape1[1]) { FloatArray(shape1[2]) } }
+
+        mapOf(0 to output0, 1 to output1)
+    }
+
+    fun faceDetection (){
+
+        faceDetection.allocateTensors()
+
+    }
+
+    var detections: Array<Detection> = arrayOf()
+
+    fun transformFaceDetectionOutputs() {
+        val helperFaceDetection = FaceDetection()
+        val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
+        val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
+        detections = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
+    }
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activityCameraBinding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(activityCameraBinding.root)
-
+        faceDetection()
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
             // Disable all camera controls
@@ -138,7 +187,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     /** Declare and bind preview and analysis use cases */
-    @SuppressLint("UnsafeExperimentalUsageError")
+    @SuppressLint("UnsafeExperimentalUsageError", "UnsafeOptInUsageError")
     private fun bindCameraUseCases() = activityCameraBinding.viewFinder.post {
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -164,6 +213,7 @@ class CameraActivity : AppCompatActivity() {
             var frameCounter = 0
             var lastFpsTimestamp = System.currentTimeMillis()
 
+
             imageAnalysis.setAnalyzer(executor, ImageAnalysis.Analyzer { image ->
                 if (!::bitmapBuffer.isInitialized) {
                     // The image rotation and RGB image buffer are initialized only once
@@ -182,14 +232,45 @@ class CameraActivity : AppCompatActivity() {
                 // Copy out RGB bits to our shared buffer
                 image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer)  }
 
+
                 // Process the image in Tensorflow
                 val tfImage =  tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
+                val tfImageFace = tfImageFaceDetection.process(faceDetectionImageBuffer.apply { load(bitmapBuffer) })
 
+                val neshto = tfImageFace
+                val neshto2 = faceDetectionImageBuffer.apply { load(bitmapBuffer) }
+//                for (i in 0 until neshto.capacity()) {
+//                    neshto.put(i, (neshto.get(i).toFloat() / 255).toInt().toByte())
+//                }
+                faceDetection.runForMultipleInputsOutputs(arrayOf(tfImageFace.buffer),outputMap )
+                val neshto3 = outputMap
+                transformFaceDetectionOutputs()
+
+                val helperFaceDetection = FaceDetection()
+                val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
+                val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
+                var ddd = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
+                val pruned = NMS.non_maximum_suppression(ddd.toMutableList(),  0.3f,
+                    0.5f // you can set this to whatever threshold you want
+                    ,
+                    true)
+                val old = ddd
+                ddd = pruned.toTypedArray()
+                if(ddd.size > 0){
+                    var maxScore = -1f
+                    var maxScoreIndex = -1
+                    for (i in ddd.indices) {
+                        if (ddd[i].score > maxScore) {
+                            maxScore = ddd[i].score
+                            maxScoreIndex = i
+                        }
+                    }
+                    reportTry(ddd[0 ].data, ddd[0].score)}
                 // Perform the object detection for the current frame
-                val predictions = detector.predict(tfImage)
+//                val predictions = detector.predict(tfImage)
 
                 // Report only the top prediction
-                reportPrediction(predictions.maxByOrNull { it.score })
+//                reportPrediction(predictions.maxByOrNull { it.score })
 
                 // Compute the FPS of the entire pipeline
                 val frameCount = 10
@@ -198,6 +279,7 @@ class CameraActivity : AppCompatActivity() {
                     val now = System.currentTimeMillis()
                     val delta = now - lastFpsTimestamp
                     val fps = 1000 * frameCount.toFloat() / delta
+                    Log.d(TAG,  "${ddd.size}  ${old.size}")
                     Log.d(TAG, "FPS: ${"%.02f".format(fps)} with tensorSize: ${tfImage.width} x ${tfImage.height}")
                     lastFpsTimestamp = now
                 }
@@ -217,6 +299,58 @@ class CameraActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    //created as reportPrediction but for face detection
+    private fun reportFace(prediction: FloatArray) = activityCameraBinding.viewFinder.post {
+
+
+        // Location has to be mapped to our local coordinates
+        val floatArray = floatArrayOf(prediction[0], prediction[1],prediction[2], prediction[3])
+
+
+        // Update the text and UI
+        activityCameraBinding.textPrediction.text = "${floatArray[0]},${floatArray[1]},${floatArray[2]},${floatArray[3]}"
+        (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
+            topMargin = floatArray[0].toInt()
+            leftMargin = floatArray[1].toInt()
+            width = min(activityCameraBinding.viewFinder.width, floatArray[3].toInt() - floatArray[1].toInt())
+            height = min(activityCameraBinding.viewFinder.height, floatArray[2].toInt() - floatArray[0].toInt())
+        }
+
+
+        // Make sure all UI elements are visible
+        activityCameraBinding.boxPrediction.visibility = View.VISIBLE
+        activityCameraBinding.textPrediction.visibility = View.VISIBLE
+    }
+    private fun reportTry(
+        prediction: FloatArray, score: Float
+    ) = activityCameraBinding.viewFinder.post {
+
+
+
+        // Location has to be mapped to our local coordinates
+        val rectF = RectF()
+        rectF.top = prediction[0]
+        rectF.left = prediction[1]
+        rectF.bottom = prediction[2]
+        rectF.right = prediction[3]
+        val location = mapOutputCoordinates(rectF)
+
+        // Update the text and UI
+//        activityCameraBinding.textPrediction.text = "${location.top},${location.left},${location.bottom},${location.right}"
+        activityCameraBinding.textPrediction.text = "${score}"
+
+        (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
+            topMargin = location.top.toInt()
+            leftMargin = location.left.toInt()
+            width = min(activityCameraBinding.viewFinder.width, location.right.toInt() - location.left.toInt())
+            height = min(activityCameraBinding.viewFinder.height, location.bottom.toInt() - location.top.toInt())
+        }
+
+
+        // Make sure all UI elements are visible
+        activityCameraBinding.boxPrediction.visibility = View.VISIBLE
+        activityCameraBinding.textPrediction.visibility = View.VISIBLE
+    }
     private fun reportPrediction(
         prediction: ObjectDetectionHelper.ObjectPrediction?
     ) = activityCameraBinding.viewFinder.post {
