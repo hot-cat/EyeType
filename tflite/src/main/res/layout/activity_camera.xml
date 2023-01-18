@@ -13,14 +13,15 @@
         android:id="@+id/view_finder"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:layout_editor_absoluteX="0dp"
-        tools:layout_editor_absoluteY="-348dp" >
+        android:visibility="visible"
+        tools:layout_editor_absoluteX="10dp"
+        tools:layout_editor_absoluteY="-346dp">
 
-        <com.example.android.camerax.tflite.DrawableDotImageView
-            android:id="@+id/imageView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitXY" />
+        <!--        <com.example.android.camerax.tflite.DrawableDotImageView-->
+        <!--            android:id="@+id/imageView"-->
+        <!--            android:layout_width="match_parent"-->
+        <!--            android:layout_height="match_parent"-->
+        <!--            android:scaleType="fitXY" />-->
     </androidx.camera.view.PreviewView>
 
     <ImageView
@@ -36,7 +37,7 @@
         android:layout_width="192dp"
         android:layout_height="192dp"
         android:src="@drawable/ic_launcher_background"
-        android:visibility="gone"
+        android:visibility="visible"
         app:layout_constraintBottom_toTopOf="@+id/view_finder"
         app:layout_constraintEnd_toStartOf="@+id/view_finder"
         app:layout_constraintHorizontal_bias="0.0"
@@ -46,12 +47,14 @@
 
     <ImageView
         android:id="@+id/landmarks2"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="192dp"
+        android:layout_height="192dp"
         android:src="@drawable/ic_launcher_background"
         android:visibility="visible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+
 
     <TextView
         android:id="@+id/text_prediction"
@@ -64,6 +67,8 @@
         android:textAllCaps="true"
         android:textAppearance="@style/TextAppearance.AppCompat.Display1"
         android:text="@string/unknown" />
+
+
 
     <View
         android:id="@+id/box_prediction"
@@ -79,12 +84,21 @@
         android:id="@+id/camera_capture_button"
         android:layout_width="@dimen/round_button_large"
         android:layout_height="@dimen/round_button_large"
-        android:layout_marginBottom="@dimen/shutter_button_margin"
-        android:scaleType="fitCenter"
         android:background="@drawable/ic_shutter"
+        android:contentDescription="@string/capture_button_alt"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        android:contentDescription="@string/capture_button_alt" />
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/circle"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:background="@drawable/circle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

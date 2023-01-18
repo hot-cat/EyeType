@@ -1,5 +1,5 @@
 package com.example.android.camerax.tflite
-
+//debel gay
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -54,7 +54,7 @@ class CameraActivity : AppCompatActivity() {
     private var lensFacing: Int = CameraSelector.LENS_FACING_FRONT
     private val isFrontFacing get() = lensFacing == CameraSelector.LENS_FACING_FRONT
 
-    private var pauseAnalysis = false
+    private var pauseAnalysis = true
     private var imageRotationDegrees: Int = 0
     private val tfImageBuffer = TensorImage(DataType.UINT8)
     private val faceDetectionImageBuffer = TensorImage(DataType.FLOAT32)
@@ -153,6 +153,9 @@ class CameraActivity : AppCompatActivity() {
     }
 
     var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
+    var prevX = -1
+    var prevY = -1
+    var prevWidth = -1
 
     fun faceDetection (){
 
@@ -177,32 +180,55 @@ class CameraActivity : AppCompatActivity() {
         setContentView(activityCameraBinding.root)
         faceDetection()
         faceLandmark.allocateTensors()
+//        ConstraintLayout.LayoutParams(activityCameraBinding.circle!!.layoutParams).horizontalBias = 50f
+//        activityCameraBinding.circle!!.layoutParams = ConstraintLayout.LayoutParams(activityCameraBinding.circle!!.layoutParams)
+//        activityCameraBinding.circle!!.setHorizontalBias(0.7)
+//        activityCameraBinding.circle!!.setVerticalBias(0.7)
+
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
-            // Disable all camera controls
-            it.isEnabled = false
 
-            if (pauseAnalysis) {
-                // If image analysis is in paused state, resume it
-                pauseAnalysis = false
-                activityCameraBinding.imagePredicted.visibility = View.GONE
+            val splitY = Math.random()
+            var y: Float = 0f
+            if(splitY < 0.6)
+                y = Math.random().toFloat() * 0.4f + 0.6f
+            else
+                y= Math.random().toFloat() * 0.4f
+            val x: Float = Math.random().toFloat()
 
-            } else {
-                // Otherwise, pause image analysis and freeze image
-                pauseAnalysis = true
-                val matrix = Matrix().apply {
-                    postRotate(imageRotationDegrees.toFloat())
-                    if (isFrontFacing) postScale(-1f, 1f)
-                }
-                val uprightImage = Bitmap.createBitmap(
-                    bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true)
-                activityCameraBinding.imagePredicted.setImageBitmap(uprightImage)
+            (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                topMargin = (y*activityCameraBinding.viewFinder.height).toInt()
+                leftMargin = (x*activityCameraBinding.viewFinder.width).toInt()
 
-                activityCameraBinding.imagePredicted.visibility = View.VISIBLE
             }
-
-            // Re-enable camera controls
-            it.isEnabled = true
+            pauseAnalysis = false
+            // Disable all camera controls
+//            it.isEnabled = false
+//
+//            //set circle
+////            val redDot: ImageView = findViewById(R.id.circle)
+//
+//            if (pauseAnalysis) {
+//                // If image analysis is in paused state, resume it
+//                pauseAnalysis = false
+//                activityCameraBinding.imagePredicted.visibility = View.GONE
+//
+//            } else {
+//                // Otherwise, pause image analysis and freeze image
+//                pauseAnalysis = true
+//                val matrix = Matrix().apply {
+//                    postRotate(imageRotationDegrees.toFloat())
+//                    if (isFrontFacing) postScale(-1f, 1f)
+//                }
+//                val uprightImage = Bitmap.createBitmap(
+//                    bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true)
+//                activityCameraBinding.imagePredicted.setImageBitmap(uprightImage)
+//
+//                activityCameraBinding.imagePredicted.visibility = View.VISIBLE
+//            }
+//
+//            // Re-enable camera controls
+//            it.isEnabled = true
         }
     }
 
@@ -223,6 +249,7 @@ class CameraActivity : AppCompatActivity() {
 
     /** Declare and bind preview and analysis use cases */
     @SuppressLint("UnsafeExperimentalUsageError", "UnsafeOptInUsageError")
+
     private fun bindCameraUseCases() = activityCameraBinding.viewFinder.post {
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -263,7 +290,8 @@ class CameraActivity : AppCompatActivity() {
                     image.close()
                     return@Analyzer
                 }
-
+                pauseAnalysis = true
+//                if()
                 // Copy out RGB bits to our shared buffer
                 image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer)  }
         //new paln
@@ -331,16 +359,34 @@ class CameraActivity : AppCompatActivity() {
                 ddd = pruned.toTypedArray()
 
                 if(ddd.size > 0){
-                    var maxScore = -1f
-                    var maxScoreIndex = -1
-                    for (i in ddd.indices) {
-                        if (ddd[i].score > maxScore) {
-                            maxScore = ddd[i].score
-                            maxScoreIndex = i
-                        }
-                    }
+//                    var maxScore = -1f
+//                    var maxScoreIndex = -1
+//                    for (i in ddd.indices) {
+//                        if (ddd[i].score > maxScore) {
+//                            maxScore = ddd[i].score
+//                            maxScoreIndex = i
+//                        }
+//                    }
 
+                    var maxScoreIndex = 0
+//                    if(prevX == -1){
+//                        prevX = (ddd[maxScoreIndex].data[1]*rotatedBitmap.width ).toInt()
+//                        prevY = (ddd[maxScoreIndex].data[0]*rotatedBitmap.height ).toInt()
+//                    }
+//                    var has = false
+//                    for (i in ddd.indices) {
+//                        if((ddd[maxScoreIndex].data[1]*rotatedBitmap.width ).toInt()== prevX &&
+//                            prevY == (ddd[maxScoreIndex].data[0]*rotatedBitmap.height ).toInt()) {
+//                            maxScoreIndex = i
+//                            has = true
+//                        }
+//                    }
+//                    if(!has){
+//                        prevX = (ddd[maxScoreIndex].data[1]*rotatedBitmap.width ).toInt()
+//                        prevY = (ddd[maxScoreIndex].data[0]*rotatedBitmap.height ).toInt()
+//                    }
                 //here we do face landmark
+
                     var sizedX =((ddd[maxScoreIndex].data[1]*5-ddd[maxScoreIndex].data[3])*rotatedBitmap.width/4).toInt()
                     var sizedY =((ddd[maxScoreIndex].data[0]*5-ddd[maxScoreIndex].data[2])*rotatedBitmap.height/4).toInt()
                     var sizedWidth = ((ddd[maxScoreIndex].data[3]-ddd[maxScoreIndex].data[1])*rotatedBitmap.width*1.5f).toInt()
@@ -497,6 +543,10 @@ class CameraActivity : AppCompatActivity() {
                         irisLandmark.runForMultipleInputsOutputs(arrayOf(newImageI.buffer),outputMapIris)
 
                         val irisParts = intArrayOf(0,4,8,12)
+                        eyeCor[num/2][0].add( IsizedX / rotatedBitmap.width )
+                        eyeCor[num/2][1].add( IsizedY / rotatedBitmap.height)
+                        eyeCor[num/2][0].add( IsizedWidth / rotatedBitmap.width)
+                        eyeCor[num/2][1].add( IsizedHeight / rotatedBitmap.height)
                         for (b in 0 until irisParts.size) {
                             val cor = generateFloatArray(irisParts[b])
                             irisBitmap.setPixel(
@@ -504,8 +554,8 @@ class CameraActivity : AppCompatActivity() {
                                 outputMapIris[0]!![0][cor[1].toInt()].toInt(), color
                             )
                             //get cor
-                            eyeCor[num/2][0].add( outputMapIris[0]!![0][cor[0].toInt()]/64 * IsizedWidth + IsizedX )
-                            eyeCor[num/2][1].add( outputMapIris[0]!![0][cor[1].toInt()]/64 * IsizedWidth + IsizedY )
+                            eyeCor[num/2][0].add( outputMapIris[0]!![0][cor[0].toInt()]/64 )
+                            eyeCor[num/2][1].add( outputMapIris[0]!![0][cor[1].toInt()]/64 )
                         }
                         for(i in 0 until 15    step 3) {
                             if(outputMapIris[1]!![0][i].toInt()<irisBitmap.width
@@ -516,8 +566,8 @@ class CameraActivity : AppCompatActivity() {
 
                                 )
                                 //cor
-                                eyeCor[num/2][0].add( outputMapIris[1]!![0][i]/64 * IsizedWidth + IsizedX)
-                                eyeCor[num/2][1].add( outputMapIris[1]!![0][i+1]/64 * IsizedWidth + IsizedY)
+                                eyeCor[num/2][0].add( outputMapIris[1]!![0][i]/64 )
+                                eyeCor[num/2][1].add( outputMapIris[1]!![0][i+1]/64 )
                             }
                         }
                         if(num==0){
@@ -537,24 +587,21 @@ class CameraActivity : AppCompatActivity() {
 
 
                     }
-                    var dve = eyeCor
-                    val red = Color.RED
+
 //                    rotatedBitmap = Bitmap.createScaledBitmap(rotatedBitmap, rotatedBitmap.width /3, rotatedBitmap.height /3, true)
-                    for(i in 0 until 2){
-                        for(j in 0 until 9){
-
-                                rotatedBitmap.setPixel((eyeCor[i][0][j]).toInt(),(eyeCor[i][1][j]).toInt(),red)
-                        }
-                    }
-
-                    irisBitmaps[0] = rotatedBitmap
-                    reportTry(ddd[maxScoreIndex].data, ddd[maxScoreIndex].score, irisBitmaps)
+//                    for(i in 0 until 2){
+//                        for(j in 0 until 9){
+//
+//                                rotatedBitmap.setPixel((eyeCor[i][0][j]).toInt(),(eyeCor[i][1][j]).toInt(),red)
+//                        }
+//                    }
+//
+//                    irisBitmaps[0] = rotatedBitmap
+                    reportTry(ddd[maxScoreIndex].data, outputMapLandmark[1]?.get(0)?.get(0)!![0][0], irisBitmaps)
 
 
 //                    android.setImageBitmap(landmarkBitmap)
 
-                     dve = eyeCor
-                    val tri = dve
                 }
 
 
@@ -576,6 +623,7 @@ class CameraActivity : AppCompatActivity() {
 //                    Log.d(TAG, "FPS: ${"%.02f".format(fps)} with tensorSize: ${tfImage.width} x ${tfImage.height}")
                     lastFpsTimestamp = now
                 }
+
             })
 
             // Create a new camera selector each time, enforcing lens facing
@@ -640,6 +688,7 @@ class CameraActivity : AppCompatActivity() {
             width = min(activityCameraBinding.viewFinder.width, location.right.toInt() - location.left.toInt())
             height = min(activityCameraBinding.viewFinder.height, location.bottom.toInt() - location.top.toInt())
         }
+
 
 
         // Make sure all UI elements are visible
