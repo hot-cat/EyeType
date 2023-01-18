@@ -54,7 +54,7 @@ class CameraActivity : AppCompatActivity() {
     private var lensFacing: Int = CameraSelector.LENS_FACING_FRONT
     private val isFrontFacing get() = lensFacing == CameraSelector.LENS_FACING_FRONT
 
-    private var pauseAnalysis = true
+    private var pauseAnalysis = false
     private var imageRotationDegrees: Int = 0
     private val tfImageBuffer = TensorImage(DataType.UINT8)
     private val faceDetectionImageBuffer = TensorImage(DataType.FLOAT32)
@@ -188,47 +188,47 @@ class CameraActivity : AppCompatActivity() {
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
 
-            val splitY = Math.random()
-            var y: Float = 0f
-            if(splitY < 0.6)
-                y = Math.random().toFloat() * 0.4f + 0.6f
-            else
-                y= Math.random().toFloat() * 0.4f
-            val x: Float = Math.random().toFloat()
-
-            (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                topMargin = (y*activityCameraBinding.viewFinder.height).toInt()
-                leftMargin = (x*activityCameraBinding.viewFinder.width).toInt()
-
-            }
-            pauseAnalysis = false
-            // Disable all camera controls
-//            it.isEnabled = false
+//            val splitY = Math.random()
+//            var y: Float = 0f
+//            if(splitY < 0.6)
+//                y = Math.random().toFloat() * 0.4f + 0.6f
+//            else
+//                y= Math.random().toFloat() * 0.4f
+//            val x: Float = Math.random().toFloat()
 //
-//            //set circle
-////            val redDot: ImageView = findViewById(R.id.circle)
+//            (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
+//                topMargin = (y*activityCameraBinding.viewFinder.height).toInt()
+//                leftMargin = (x*activityCameraBinding.viewFinder.width).toInt()
 //
-//            if (pauseAnalysis) {
-//                // If image analysis is in paused state, resume it
-//                pauseAnalysis = false
-//                activityCameraBinding.imagePredicted.visibility = View.GONE
-//
-//            } else {
-//                // Otherwise, pause image analysis and freeze image
-//                pauseAnalysis = true
-//                val matrix = Matrix().apply {
-//                    postRotate(imageRotationDegrees.toFloat())
-//                    if (isFrontFacing) postScale(-1f, 1f)
-//                }
-//                val uprightImage = Bitmap.createBitmap(
-//                    bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true)
-//                activityCameraBinding.imagePredicted.setImageBitmap(uprightImage)
-//
-//                activityCameraBinding.imagePredicted.visibility = View.VISIBLE
 //            }
-//
-//            // Re-enable camera controls
-//            it.isEnabled = true
+//            pauseAnalysis = false
+            // Disable all camera controls
+            it.isEnabled = false
+
+            //set circle
+//            val redDot: ImageView = findViewById(R.id.circle)
+
+            if (pauseAnalysis) {
+                // If image analysis is in paused state, resume it
+                pauseAnalysis = false
+                activityCameraBinding.imagePredicted.visibility = View.GONE
+
+            } else {
+                // Otherwise, pause image analysis and freeze image
+                pauseAnalysis = true
+                val matrix = Matrix().apply {
+                    postRotate(imageRotationDegrees.toFloat())
+                    if (isFrontFacing) postScale(-1f, 1f)
+                }
+                val uprightImage = Bitmap.createBitmap(
+                    bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true)
+                activityCameraBinding.imagePredicted.setImageBitmap(uprightImage)
+
+                activityCameraBinding.imagePredicted.visibility = View.VISIBLE
+            }
+
+            // Re-enable camera controls
+            it.isEnabled = true
         }
     }
 
@@ -290,7 +290,7 @@ class CameraActivity : AppCompatActivity() {
                     image.close()
                     return@Analyzer
                 }
-                pauseAnalysis = true
+//                pauseAnalysis = true
 //                if()
                 // Copy out RGB bits to our shared buffer
                 image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer)  }
