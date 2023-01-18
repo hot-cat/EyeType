@@ -12,7 +12,16 @@
     <androidx.camera.view.PreviewView
         android:id="@+id/view_finder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent"
+        tools:layout_editor_absoluteX="0dp"
+        tools:layout_editor_absoluteY="-348dp" >
+
+        <com.example.android.camerax.tflite.DrawableDotImageView
+            android:id="@+id/imageView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitXY" />
+    </androidx.camera.view.PreviewView>
 
     <ImageView
         android:id="@+id/image_predicted"
@@ -20,6 +29,29 @@
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
         android:visibility="gone" />
+
+
+    <ImageView
+        android:id="@+id/landmarks"
+        android:layout_width="192dp"
+        android:layout_height="192dp"
+        android:src="@drawable/ic_launcher_background"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/view_finder"
+        app:layout_constraintEnd_toStartOf="@+id/view_finder"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <ImageView
+        android:id="@+id/landmarks2"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/ic_launcher_background"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/text_prediction"
@@ -35,8 +67,8 @@
 
     <View
         android:id="@+id/box_prediction"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_width="10dp"
+        android:layout_height="10dp"
         android:background="@drawable/shape_rectangle"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

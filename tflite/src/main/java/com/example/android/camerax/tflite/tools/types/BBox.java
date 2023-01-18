@@ -1,16 +1,20 @@
 package com.example.android.camerax.tflite.tools.types;
 
 public class BBox {
-    private float xmin;
-    private float ymin;
-    private float xmax;
-    private float ymax;
+    public float xmin;
+    public float ymin;
+    public float xmax;
+    public float ymax;
+    public float width;
+    public float height;
 
     public BBox(float xmin, float ymin, float xmax, float ymax) {
         this.xmin = xmin;
         this.ymin = ymin;
         this.xmax = xmax;
         this.ymax = ymax;
+        this.width = xmax - xmin;
+        this.height = ymax - ymin;
     }
     // never used
     // public float[] getAsTuple() {

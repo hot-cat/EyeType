@@ -4,9 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Matrix
-import android.graphics.RectF
+import android.graphics.*
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
@@ -45,6 +43,7 @@ import kotlin.random.Random
 class CameraActivity : AppCompatActivity() {
 
     private lateinit var activityCameraBinding: ActivityCameraBinding
+
 
     private lateinit var bitmapBuffer: Bitmap
 
@@ -110,6 +109,20 @@ class CameraActivity : AppCompatActivity() {
             Interpreter.Options().addDelegate(nnApiDelegate)
         )
     }
+    //this is the tflite model loaded Landmarks
+    private val faceLandmark by lazy {
+        Interpreter(
+            FileUtil.loadMappedFile(this, "face_landmark.tflite"),
+            Interpreter.Options().addDelegate(nnApiDelegate)
+        )
+    }
+    //this is the tflite model loaded Landmarks
+    private val irisLandmark by lazy {
+        Interpreter(
+            FileUtil.loadMappedFile(this, "iris_landmark.tflite"),
+            Interpreter.Options().addDelegate(nnApiDelegate)
+        )
+    }
     //this is the output of the tflite model for face detection
      val outputMap: Map<Int, Array<Array<FloatArray>>> by lazy {
         val shape0: IntArray = faceDetection.getOutputTensor(0).shape()
@@ -120,6 +133,26 @@ class CameraActivity : AppCompatActivity() {
 
         mapOf(0 to output0, 1 to output1)
     }
+    val outputMapLandmark: Map<Int, Array<Array<Array<FloatArray>>>> by lazy {
+        val shape0: IntArray = faceLandmark.getOutputTensor(0).shape()
+        val output0 = Array(shape0[0]) {Array(shape0[1]) { Array(shape0[2]) { FloatArray(shape0[3]) } }}
+
+        val shape1: IntArray = faceLandmark.getOutputTensor(1).shape()
+        val output1 = Array(shape1[0]) {Array(shape1[1]) { Array(shape1[2]) { FloatArray(shape1[3]) } }}
+
+        mapOf(0 to output0, 1 to output1)
+    }
+    val outputMapIris: Map<Int, Array<FloatArray>> by lazy {
+        val shape0: IntArray = irisLandmark.getOutputTensor(0).shape()
+        val output0 = Array(shape0[0]) { FloatArray(shape0[1]) }
+
+        val shape1: IntArray = irisLandmark.getOutputTensor(1).shape()
+        val output1 =  Array(shape1[0]) { FloatArray(shape1[1]) }
+
+        mapOf(0 to output0, 1 to output1)
+    }
+
+    var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
 
     fun faceDetection (){
 
@@ -129,12 +162,12 @@ class CameraActivity : AppCompatActivity() {
 
     var detections: Array<Detection> = arrayOf()
 
-    fun transformFaceDetectionOutputs() {
-        val helperFaceDetection = FaceDetection()
-        val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
-        val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
-        detections = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
-    }
+//    fun transformFaceDetectionOutputs() {
+//        val helperFaceDetection = FaceDetection()
+//        val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
+//        val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
+//        detections = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
+//    }
 
 
 
@@ -143,6 +176,7 @@ class CameraActivity : AppCompatActivity() {
         activityCameraBinding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(activityCameraBinding.root)
         faceDetection()
+        faceLandmark.allocateTensors()
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
             // Disable all camera controls
@@ -163,6 +197,7 @@ class CameraActivity : AppCompatActivity() {
                 val uprightImage = Bitmap.createBitmap(
                     bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true)
                 activityCameraBinding.imagePredicted.setImageBitmap(uprightImage)
+
                 activityCameraBinding.imagePredicted.visibility = View.VISIBLE
             }
 
@@ -231,20 +266,58 @@ class CameraActivity : AppCompatActivity() {
 
                 // Copy out RGB bits to our shared buffer
                 image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer)  }
+        //new paln
+                var matrix = Matrix()
+                matrix.postRotate(-90f)
+                var rotatedBitmap = Bitmap.createBitmap(
+                    bitmapBuffer,
+                    0,
+                    0,
+                    bitmapBuffer.width,
+                    bitmapBuffer.height,
+                    matrix,
+                    true
+                )
+
+                // Resize Bitmap to 128x128
+                val resizedBitmap = Bitmap.createScaledBitmap(rotatedBitmap, 128, 128, true)
+
+                // Rotate Bitmap by -90 degrees
 
 
-                // Process the image in Tensorflow
-                val tfImage =  tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
-                val tfImageFace = tfImageFaceDetection.process(faceDetectionImageBuffer.apply { load(bitmapBuffer) })
+                val width: Int = resizedBitmap.getWidth()
+                val height: Int = resizedBitmap.getHeight()
 
-                val neshto = tfImageFace
-                val neshto2 = faceDetectionImageBuffer.apply { load(bitmapBuffer) }
-//                for (i in 0 until neshto.capacity()) {
-//                    neshto.put(i, (neshto.get(i).toFloat() / 255).toInt().toByte())
-//                }
-                faceDetection.runForMultipleInputsOutputs(arrayOf(tfImageFace.buffer),outputMap )
-                val neshto3 = outputMap
-                transformFaceDetectionOutputs()
+
+                val fpixels = FloatArray(width * height * 3)
+                var counter = 0
+
+                for (x in 0..width-1) {
+                    for (y in 0..height-1) {
+                        val pixel: Int = resizedBitmap.getPixel(x, y)
+
+                        // Normalize channel values to [-1.0, 1.0]. This requirement varies by
+                        // model. For example, some models might require values to be normalized
+                        // to the range [0.0, 1.0] instead.
+                        fpixels[counter]= Color.red(pixel) / 255.0f
+                        fpixels[counter+1]= Color.green(pixel) / 255.0f
+                        fpixels[counter+2]= Color.blue(pixel) / 255.0f
+
+                        fpixels[counter] = (fpixels[counter]- 0.5f) / 0.5f
+                        fpixels[counter+1] = (fpixels[counter+1]- 0.5f) / 0.5f
+                        fpixels[counter+2] = (fpixels[counter+2]- 0.5f) / 0.5f
+
+                        counter += 3
+                    }
+                }
+                val newImage = TensorImage(DataType.FLOAT32)
+                val myArr: IntArray = intArrayOf(1,128,128,3)
+                newImage.apply { load(fpixels, myArr) }
+
+
+                faceDetection.runForMultipleInputsOutputs(arrayOf(newImage.buffer),outputMap )
+
+//                transformFaceDetectionOutputs()
 
                 val helperFaceDetection = FaceDetection()
                 val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
@@ -254,8 +327,9 @@ class CameraActivity : AppCompatActivity() {
                     0.5f // you can set this to whatever threshold you want
                     ,
                     true)
-                val old = ddd
+                    val old = ddd
                 ddd = pruned.toTypedArray()
+
                 if(ddd.size > 0){
                     var maxScore = -1f
                     var maxScoreIndex = -1
@@ -265,7 +339,226 @@ class CameraActivity : AppCompatActivity() {
                             maxScoreIndex = i
                         }
                     }
-                    reportTry(ddd[0 ].data, ddd[0].score)}
+
+                //here we do face landmark
+                    var sizedX =((ddd[maxScoreIndex].data[1]*5-ddd[maxScoreIndex].data[3])*rotatedBitmap.width/4).toInt()
+                    var sizedY =((ddd[maxScoreIndex].data[0]*5-ddd[maxScoreIndex].data[2])*rotatedBitmap.height/4).toInt()
+                    var sizedWidth = ((ddd[maxScoreIndex].data[3]-ddd[maxScoreIndex].data[1])*rotatedBitmap.width*1.5f).toInt()
+                    var sizedHeight = ((ddd[maxScoreIndex].data[2]-ddd[maxScoreIndex].data[0])*rotatedBitmap.height*1.5f).toInt()
+
+                    sizedX = when(sizedX > 0) {
+                        true -> sizedX
+                        false -> 0
+                    }
+                    sizedX = when(sizedX < rotatedBitmap.width) {
+                        true -> sizedX
+                        false -> rotatedBitmap.width-1
+                    }
+                    sizedY = when(sizedY > 0) {
+                        true -> sizedY
+                        false -> 0
+                    }
+                    sizedY = when(sizedY < rotatedBitmap.height) {
+                        true -> sizedY
+                        false -> rotatedBitmap.height-1
+                    }
+                    sizedWidth = when(sizedX+sizedWidth < rotatedBitmap.width) {
+                        true -> sizedWidth
+                        false -> rotatedBitmap.width-sizedX
+                    }
+                    sizedHeight = when(sizedY+sizedHeight < rotatedBitmap.height) {
+                        true -> sizedHeight
+                        false -> rotatedBitmap.height-sizedY
+                    }
+
+                    var landmarkBitmap = Bitmap.createBitmap(rotatedBitmap,sizedX,sizedY,
+                            sizedWidth, sizedHeight);
+                    landmarkBitmap = Bitmap.createScaledBitmap(landmarkBitmap,192,192,true);
+                    val color = Color.RED
+                    val lpixels = FloatArray(192 * 192 * 3)
+                    var counterl = 0
+                    for (x in 0 until 192) {
+                        for (y in 0 until 192) {
+                            val pixel: Int = landmarkBitmap.getPixel(y, x)
+
+                            // Normalize channel values to [-1.0, 1.0]. This requirement varies by
+                            // model. For example, some models might require values to be normalized
+                            // to the range [0.0, 1.0] instead.
+//                            lpixels[counterl]= Color.red(pixel).toFloat()
+//                            lpixels[counterl+1]= Color.green(pixel).toFloat()
+//                            lpixels[counterl+2]= Color.blue(pixel).toFloat()
+                            lpixels[counterl]= Color.red(pixel)/255f
+                            lpixels[counterl+1]= Color.green(pixel)/255f
+                            lpixels[counterl+2]= Color.blue(pixel)/255f
+
+                            counterl += 3
+                        }
+                    }
+
+
+
+                    val newImageL = TensorImage(DataType.FLOAT32)
+                    val myArrL: IntArray = intArrayOf(1,192,192,3)
+                    newImageL.apply { load(lpixels, myArrL) }
+
+                    faceLandmark.runForMultipleInputsOutputs(arrayOf(newImageL.buffer),outputMapLandmark )
+                    val proba = outputMapLandmark
+//                    for(i in 0..1403    step 3) {
+//                        if(outputMapLandmark[0]!![0][0][0][i].toInt()<landmarkBitmap.width
+//                            && outputMapLandmark[0]!![0][0][0][i+1].toInt()<landmarkBitmap.height)
+//                        landmarkBitmap.setPixel(
+//                            outputMapLandmark[0]!![0][0][0][i].toInt(),
+//                            outputMapLandmark[0]!![0][0][0][i+1].toInt(), color
+//                        )
+//                    }
+//                   //33, 133
+                    //, 362, 263
+                    val numbers = intArrayOf(33, 133,362, 263)
+                    var irisBitmaps = arrayOfNulls<Bitmap>(2)
+                    eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
+                    for (num in 0 until numbers.size step 2) {
+                        val left = generateFloatArray(numbers[num])
+                        val right = generateFloatArray(numbers[num+1])
+//                                                landmarkBitmap.setPixel(
+//                            outputMapLandmark[0]!![0][0][0][floatArr[0].toInt()].toInt(),
+//                            outputMapLandmark[0]!![0][0][0][floatArr[1].toInt()].toInt(), color
+                        left[0] = outputMapLandmark[0]!![0][0][0][left[0].toInt()]/192f
+                        left[1] = outputMapLandmark[0]!![0][0][0][left[1].toInt()]/192f
+                        left[2] = outputMapLandmark[0]!![0][0][0][left[2].toInt()]/192f
+                        right[0] = outputMapLandmark[0]!![0][0][0][right[0].toInt()]/192f
+                        right[1]  = outputMapLandmark[0]!![0][0][0][right[1].toInt()]/192f
+                        right[2]  = outputMapLandmark[0]!![0][0][0][right[2].toInt()]/192f
+                        var middleX = (right[0]+left[0])/2 * sizedWidth + sizedX
+                        var middleY = (right[1]+left[1])/2  * sizedHeight + sizedY
+
+                        var  IsizedWidth = (right[0]-left[0])*2.3f * sizedWidth
+                        var  IsizedHeight =IsizedWidth
+                        var IsizedX = middleX - IsizedWidth/2
+                        var  IsizedY = middleY - IsizedHeight/2
+
+                        IsizedX = when(IsizedX > 0) {
+                            true -> IsizedX
+                            false -> 0f
+                        }
+                        IsizedX = when(IsizedX < rotatedBitmap.width) {
+                            true -> IsizedX
+                            false -> rotatedBitmap.width-1f
+                        }
+                        IsizedY = when(IsizedY > 0) {
+                            true -> IsizedY
+                            false -> 0f
+                        }
+                        IsizedY = when(IsizedY < rotatedBitmap.height) {
+                            true -> IsizedY
+                            false -> rotatedBitmap.height-1f
+                        }
+                        IsizedWidth = when(IsizedX+IsizedWidth < rotatedBitmap.width) {
+                            true -> IsizedWidth
+                            false -> rotatedBitmap.width-IsizedX
+                        }
+                        IsizedHeight = when(IsizedY+IsizedHeight < rotatedBitmap.height) {
+                            true -> IsizedHeight
+                            false -> rotatedBitmap.height-IsizedY
+                        }
+
+
+                        var irisBitmap = Bitmap.createBitmap(rotatedBitmap,IsizedX.toInt(),IsizedY.toInt(),
+                            IsizedWidth.toInt(), IsizedHeight.toInt());
+                        irisBitmap = Bitmap.createScaledBitmap(irisBitmap,64,64,true);
+                       if(num == 2){
+                           val matrix = Matrix()
+                           matrix.preScale(-1.0f, 1.0f)
+                           irisBitmap = Bitmap.createBitmap(
+                               irisBitmap,
+                               0,
+                               0,
+                               irisBitmap.getWidth(),
+                               irisBitmap.getHeight(),
+                               matrix,
+                               true
+                           )
+                       }
+                        val ipixels = FloatArray(64 * 64 * 3)
+                        var counteri = 0
+                        for (x in 0 until 64) {
+                            for (y in 0 until 64) {
+                                val pixel: Int = irisBitmap.getPixel(y, x)
+                                ipixels[counteri]= Color.red(pixel)/255f
+                                ipixels[counteri+1]= Color.green(pixel)/255f
+                                ipixels[counteri+2]= Color.blue(pixel)/255f
+
+                                counteri += 3
+                            }
+                        }
+                        val newImageI = TensorImage(DataType.FLOAT32)
+                        val myArrI: IntArray = intArrayOf(1,64,64,3)
+                        newImageI.apply { load(ipixels, myArrI) }
+
+                        irisLandmark.runForMultipleInputsOutputs(arrayOf(newImageI.buffer),outputMapIris)
+
+                        val irisParts = intArrayOf(0,4,8,12)
+                        for (b in 0 until irisParts.size) {
+                            val cor = generateFloatArray(irisParts[b])
+                            irisBitmap.setPixel(
+                                outputMapIris[0]!![0][cor[0].toInt()].toInt(),
+                                outputMapIris[0]!![0][cor[1].toInt()].toInt(), color
+                            )
+                            //get cor
+                            eyeCor[num/2][0].add( outputMapIris[0]!![0][cor[0].toInt()]/64 * IsizedWidth + IsizedX )
+                            eyeCor[num/2][1].add( outputMapIris[0]!![0][cor[1].toInt()]/64 * IsizedWidth + IsizedY )
+                        }
+                        for(i in 0 until 15    step 3) {
+                            if(outputMapIris[1]!![0][i].toInt()<irisBitmap.width
+                                && outputMapIris[1]!![0][i+1].toInt()<irisBitmap.height) {
+                                irisBitmap.setPixel(
+                                    outputMapIris[1]!![0][i].toInt(),
+                                    outputMapIris[1]!![0][i + 1].toInt(), color
+
+                                )
+                                //cor
+                                eyeCor[num/2][0].add( outputMapIris[1]!![0][i]/64 * IsizedWidth + IsizedX)
+                                eyeCor[num/2][1].add( outputMapIris[1]!![0][i+1]/64 * IsizedWidth + IsizedY)
+                            }
+                        }
+                        if(num==0){
+                            val matrix = Matrix()
+                            matrix.preScale(-1.0f, 1.0f)
+                            irisBitmap = Bitmap.createBitmap(
+                                irisBitmap,
+                                0,
+                                0,
+                                irisBitmap.getWidth(),
+                                irisBitmap.getHeight(),
+                                matrix,
+                                true
+                            )
+                        }
+                        irisBitmaps[num/2] = irisBitmap
+
+
+                    }
+                    var dve = eyeCor
+                    val red = Color.RED
+//                    rotatedBitmap = Bitmap.createScaledBitmap(rotatedBitmap, rotatedBitmap.width /3, rotatedBitmap.height /3, true)
+                    for(i in 0 until 2){
+                        for(j in 0 until 9){
+
+                                rotatedBitmap.setPixel((eyeCor[i][0][j]).toInt(),(eyeCor[i][1][j]).toInt(),red)
+                        }
+                    }
+
+                    irisBitmaps[0] = rotatedBitmap
+                    reportTry(ddd[maxScoreIndex].data, ddd[maxScoreIndex].score, irisBitmaps)
+
+
+//                    android.setImageBitmap(landmarkBitmap)
+
+                     dve = eyeCor
+                    val tri = dve
+                }
+
+
+
                 // Perform the object detection for the current frame
 //                val predictions = detector.predict(tfImage)
 
@@ -280,7 +573,7 @@ class CameraActivity : AppCompatActivity() {
                     val delta = now - lastFpsTimestamp
                     val fps = 1000 * frameCount.toFloat() / delta
                     Log.d(TAG,  "${ddd.size}  ${old.size}")
-                    Log.d(TAG, "FPS: ${"%.02f".format(fps)} with tensorSize: ${tfImage.width} x ${tfImage.height}")
+//                    Log.d(TAG, "FPS: ${"%.02f".format(fps)} with tensorSize: ${tfImage.width} x ${tfImage.height}")
                     lastFpsTimestamp = now
                 }
             })
@@ -298,31 +591,33 @@ class CameraActivity : AppCompatActivity() {
 
         }, ContextCompat.getMainExecutor(this))
     }
-
-    //created as reportPrediction but for face detection
-    private fun reportFace(prediction: FloatArray) = activityCameraBinding.viewFinder.post {
-
-
-        // Location has to be mapped to our local coordinates
-        val floatArray = floatArrayOf(prediction[0], prediction[1],prediction[2], prediction[3])
-
-
-        // Update the text and UI
-        activityCameraBinding.textPrediction.text = "${floatArray[0]},${floatArray[1]},${floatArray[2]},${floatArray[3]}"
-        (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
-            topMargin = floatArray[0].toInt()
-            leftMargin = floatArray[1].toInt()
-            width = min(activityCameraBinding.viewFinder.width, floatArray[3].toInt() - floatArray[1].toInt())
-            height = min(activityCameraBinding.viewFinder.height, floatArray[2].toInt() - floatArray[0].toInt())
-        }
-
-
-        // Make sure all UI elements are visible
-        activityCameraBinding.boxPrediction.visibility = View.VISIBLE
-        activityCameraBinding.textPrediction.visibility = View.VISIBLE
+    fun generateFloatArray(num: Int): FloatArray {
+        return floatArrayOf(num*3f, ((num*3)+1f), ((num*3)+2f))
     }
+    //created as reportPrediction but for face detection
+//    private fun reportFace(prediction: FloatArray) = activityCameraBinding.viewFinder.post {
+//
+//
+//        // Location has to be mapped to our local coordinates
+//        val floatArray = floatArrayOf(prediction[0], prediction[1],prediction[2], prediction[3])
+//
+//
+//        // Update the text and UI
+//        activityCameraBinding.textPrediction.text = "${floatArray[0]},${floatArray[1]},${floatArray[2]},${floatArray[3]}"
+//        (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
+//            topMargin = floatArray[0].toInt()
+//            leftMargin = floatArray[1].toInt()
+//            width = min(activityCameraBinding.viewFinder.width, floatArray[3].toInt() - floatArray[1].toInt())
+//            height = min(activityCameraBinding.viewFinder.height, floatArray[2].toInt() - floatArray[0].toInt())
+//        }
+//
+//
+//        // Make sure all UI elements are visible
+//        activityCameraBinding.boxPrediction.visibility = View.VISIBLE
+//        activityCameraBinding.textPrediction.visibility = View.VISIBLE
+//    }
     private fun reportTry(
-        prediction: FloatArray, score: Float
+        prediction: FloatArray, score: Float, landmarkBitmap: Array<Bitmap?>
     ) = activityCameraBinding.viewFinder.post {
 
 
@@ -348,34 +643,9 @@ class CameraActivity : AppCompatActivity() {
 
 
         // Make sure all UI elements are visible
-        activityCameraBinding.boxPrediction.visibility = View.VISIBLE
-        activityCameraBinding.textPrediction.visibility = View.VISIBLE
-    }
-    private fun reportPrediction(
-        prediction: ObjectDetectionHelper.ObjectPrediction?
-    ) = activityCameraBinding.viewFinder.post {
+        activityCameraBinding.landmarks!!.setImageBitmap(landmarkBitmap[1])
 
-        // Early exit: if prediction is not good enough, don't report it
-        if (prediction == null || prediction.score < ACCURACY_THRESHOLD) {
-            activityCameraBinding.boxPrediction.visibility = View.GONE
-            activityCameraBinding.textPrediction.visibility = View.GONE
-            return@post
-        }
-
-        // Location has to be mapped to our local coordinates
-        val location = mapOutputCoordinates(prediction.location)
-
-        // Update the text and UI
-        activityCameraBinding.textPrediction.text = "${"%.2f".format(prediction.score)} ${prediction.label}"
-        (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
-            topMargin = location.top.toInt()
-            leftMargin = location.left.toInt()
-            width = min(activityCameraBinding.viewFinder.width, location.right.toInt() - location.left.toInt())
-            height = min(activityCameraBinding.viewFinder.height, location.bottom.toInt() - location.top.toInt())
-        }
-
-
-        // Make sure all UI elements are visible
+        activityCameraBinding.landmarks2!!.setImageBitmap(landmarkBitmap[0])
         activityCameraBinding.boxPrediction.visibility = View.VISIBLE
         activityCameraBinding.textPrediction.visibility = View.VISIBLE
     }

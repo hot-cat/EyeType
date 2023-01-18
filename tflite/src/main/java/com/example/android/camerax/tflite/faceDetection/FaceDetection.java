@@ -1,5 +1,9 @@
 package com.example.android.camerax.tflite.faceDetection;
 
+import static android.content.ContentValues.TAG;
+
+import android.util.Log;
+
 import com.example.android.camerax.tflite.tools.types.Detection;
 
 import org.jetbrains.annotations.NotNull;
@@ -56,18 +60,20 @@ public class FaceDetection {
 
     private static final float RAW_SCORE_LIMIT = 80.0f;
     public float[][][] getSigmoidScores(float[][][] raw_scores) {
-            for (int i = 0; i < raw_scores.length; i++) {
+
                 for (int j = 0; j < raw_scores[0].length; j++) {
-                    for (int k = 0; k < raw_scores[0][0].length; k++) {
-                        if (raw_scores[i][j][k] < -RAW_SCORE_LIMIT) {
-                            raw_scores[i][j][k] = -RAW_SCORE_LIMIT;
-                        } else if (raw_scores[i][j][k] > RAW_SCORE_LIMIT) {
-                            raw_scores[i][j][k] = RAW_SCORE_LIMIT;
-                        }
-                        raw_scores[i][j][k] = 1.0f / (1.0f + (float) Math.exp(-raw_scores[i][j][k]));
-                    }
+
+//                        if (raw_scores[0][j][0] < -RAW_SCORE_LIMIT) {
+//                            raw_scores[0][j][0] = -RAW_SCORE_LIMIT;
+//                        } else if (raw_scores[0][j][0] > RAW_SCORE_LIMIT) {
+//                            raw_scores[0][j][0] = RAW_SCORE_LIMIT;
+//                        }
+
+                        raw_scores[0][j][0] = 1.0f / (1.0f + (float) Math.exp(-raw_scores[0][j][0]));
+
+
                 }
-            }
+
             return raw_scores;
     }
     float MIN_SCORE = 0.5f; // you can set this to whatever threshold you want
@@ -94,14 +100,15 @@ public class FaceDetection {
             boolean valid = true;
             for (int j = 0; j < boxes[i].length; j++) {
 
-                    if (boxes[i][j][1] <= boxes[i][j][0]) {
-                        valid = false;
-                        break;
-                    }
+//                    if (boxes[i][j][1] <= boxes[i][j][0]) {
+//                        valid = false;
+//                        break;
+//                    }
 
 
             }
-            if (valid && scores[0][i][0] > MIN_SCORE) {
+
+            if (scores[0][i][0] > MIN_SCORE) {
                 detections.add(new Detection(boxes[i], scores[0][i][0]));
             }
         }
