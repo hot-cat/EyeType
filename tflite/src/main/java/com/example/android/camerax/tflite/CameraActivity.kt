@@ -123,6 +123,12 @@ class CameraActivity : AppCompatActivity() {
             Interpreter.Options().addDelegate(nnApiDelegate)
         )
     }
+    private val corPos by lazy {
+        Interpreter(
+            FileUtil.loadMappedFile(this, "tfliteV2.tflite"),
+            Interpreter.Options().addDelegate(nnApiDelegate)
+        )
+    }
     //this is the output of the tflite model for face detection
      val outputMap: Map<Int, Array<Array<FloatArray>>> by lazy {
         val shape0: IntArray = faceDetection.getOutputTensor(0).shape()
@@ -688,7 +694,11 @@ class CameraActivity : AppCompatActivity() {
             width = min(activityCameraBinding.viewFinder.width, location.right.toInt() - location.left.toInt())
             height = min(activityCameraBinding.viewFinder.height, location.bottom.toInt() - location.top.toInt())
         }
+        (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
+            topMargin = (0.5*activityCameraBinding.viewFinder.height).toInt()
+            leftMargin = (0.5*activityCameraBinding.viewFinder.width).toInt()
 
+        }
 
 
         // Make sure all UI elements are visible
