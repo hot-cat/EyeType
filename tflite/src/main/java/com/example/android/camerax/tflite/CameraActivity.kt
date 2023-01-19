@@ -2,14 +2,20 @@ package com.example.android.camerax.tflite
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.*
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.os.Environment.DIRECTORY_MUSIC
+import android.provider.MediaStore
 import android.util.Log
-import android.util.Size
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
@@ -21,20 +27,21 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.android.example.camerax.tflite.databinding.ActivityCameraBinding
 import com.example.android.camerax.tflite.faceDetection.FaceDetection
-import com.example.android.camerax.tflite.tools.types.Detection
 import com.example.android.camerax.tflite.tools.types.NMS
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.nnapi.NnApiDelegate
 import org.tensorflow.lite.support.common.FileUtil
-import org.tensorflow.lite.support.common.ops.NormalizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.support.image.ops.ResizeWithCropOrPadOp
-import org.tensorflow.lite.support.image.ops.Rot90Op
+import java.io.File
+import java.io.FileWriter
+import java.net.URL
+import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.collections.ArrayList
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -52,23 +59,10 @@ class CameraActivity : AppCompatActivity() {
     private val permissionsRequestCode = Random.nextInt(0, 10000)
 
     private var lensFacing: Int = CameraSelector.LENS_FACING_FRONT
-    private val isFrontFacing get() = lensFacing == CameraSelector.LENS_FACING_FRONT
 
-    private var pauseAnalysis = false
+    private var pauseAnalysis = true
     private var imageRotationDegrees: Int = 0
-    private val tfImageBuffer = TensorImage(DataType.UINT8)
-    private val faceDetectionImageBuffer = TensorImage(DataType.FLOAT32)
 
-    private val tfImageProcessor by lazy {
-        val cropSize = minOf(bitmapBuffer.width, bitmapBuffer.height)
-        ImageProcessor.Builder()
-            .add(ResizeWithCropOrPadOp(cropSize, cropSize))
-            .add(ResizeOp(
-                128, 128, ResizeOp.ResizeMethod.NEAREST_NEIGHBOR))
-            .add(Rot90Op(-imageRotationDegrees / 90))
-            .add(NormalizeOp(0f, 1f))
-            .build()
-    }
 
     private val nnApiDelegate by lazy  {
         NnApiDelegate()
@@ -79,29 +73,8 @@ class CameraActivity : AppCompatActivity() {
             FileUtil.loadMappedFile(this, MODEL_PATH),
             Interpreter.Options().addDelegate(nnApiDelegate))
     }
-    private val detector by lazy {
-        ObjectDetectionHelper(
-            tflite,
-            FileUtil.loadLabels(this, LABELS_PATH)
-        )
-    }
 
-    private val tfInputSize by lazy {
-        val inputIndex = 0
-        val inputShape = tflite.getInputTensor(inputIndex).shape()
-        Size(inputShape[2], inputShape[1]) // Order of axis is: {1, height, width, 3}
-    }
-    // made for porcessing the image for face detection model
-    private val tfImageFaceDetection by lazy {
-        val cropSize = minOf(bitmapBuffer.width, bitmapBuffer.height)
-        ImageProcessor.Builder()
-            .add(ResizeWithCropOrPadOp(cropSize, cropSize))
-            .add(ResizeOp(
-                128, 128, ResizeOp.ResizeMethod.NEAREST_NEIGHBOR))
-            .add(Rot90Op(-imageRotationDegrees / 90))
-            .add(NormalizeOp(0.5f, 0.5f))
-            .build()
-    }
+
     //this is the tflite model loaded
     private val faceDetection by lazy {
         Interpreter(
@@ -151,51 +124,125 @@ class CameraActivity : AppCompatActivity() {
 
         mapOf(0 to output0, 1 to output1)
     }
-
-    var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
-    var prevX = -1
-    var prevY = -1
-    var prevWidth = -1
-
     fun faceDetection (){
 
         faceDetection.allocateTensors()
 
     }
 
-    var detections: Array<Detection> = arrayOf()
+    var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
+    val predCor: FloatArray by lazy {
+        val x = Math.random()
+        val y = Math.random()
+        floatArrayOf(0f, 0f)
+    }
+    val prevCor: FloatArray by lazy {
+        floatArrayOf(0f, 0f)
+    }
+    var count = -1
 
-//    fun transformFaceDetectionOutputs() {
-//        val helperFaceDetection = FaceDetection()
-//        val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
-//        val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
-//        detections = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
+    val dataGen = ArrayList<ArrayList<ArrayList<Float>>>()
+
+    fun addData(eyeCor: Array<Array<ArrayList<Float>>>, predCor: FloatArray){
+        //add to dataGen
+        val eyeSpread = ArrayList<Float>()
+
+        for(i in 0 until 2)
+            for (j in 0 until eyeCor[i][0].size){
+                eyeSpread.add(eyeCor[i][0][j])
+                eyeSpread.add(eyeCor[i][1][j])
+            }
+        val dataNow = ArrayList<ArrayList<Float>>()
+        dataNow.addAll(listOf(eyeSpread))
+        val predList =ArrayList<Float>()
+        for(i in 0 until predCor.size)
+            predList.add(predCor[i])
+        dataNow.addAll(listOf(predList))
+
+        dataGen.add(dataNow)
+    }
+
+
+//    fun writeFileOnInternalStorage(mcoContext: Context, sFileName: String?, sBody: String?) {
+//        val dir = File(mcoContext.getExternalFilesDir(DIRECTORY_MUSIC), "")
+//        if (!dir.exists()) {
+//            dir.mkdir()
+//        }
+//        try {
+//            val gpxfile = File(dir, sFileName)
+//            val writer = FileWriter(gpxfile)
+//            writer.append(sBody)
+//            writer.flush()
+//            writer.close()
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//        }
 //    }
-
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         activityCameraBinding = ActivityCameraBinding.inflate(layoutInflater)
+
         setContentView(activityCameraBinding.root)
         faceDetection()
         faceLandmark.allocateTensors()
-//        ConstraintLayout.LayoutParams(activityCameraBinding.circle!!.layoutParams).horizontalBias = 50f
-//        activityCameraBinding.circle!!.layoutParams = ConstraintLayout.LayoutParams(activityCameraBinding.circle!!.layoutParams)
-//        activityCameraBinding.circle!!.setHorizontalBias(0.7)
-//        activityCameraBinding.circle!!.setVerticalBias(0.7)
+
+        Log.d(TAG,
+            ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE).toString()
+        )
+
+        activityCameraBinding.saveButton!!.setOnClickListener{
+//            writeFileOnInternalStorage(this,"proba.txt","tuka e datata")
+            val reference = FirebaseStorage.getInstance().getReference().child("Document")
+            val dataString = dataGen.joinToString("\n") { innerList ->
+                innerList.joinToString("\n") { innerInnerList ->
+                    innerInnerList.joinToString(" ") {
+                        it.toString()
+                    }
+                }
+            }
+            dataGen.clear()
+            val calendar = Calendar.getInstance()
+            val day = calendar.get(Calendar.DAY_OF_MONTH)
+            val hour = calendar.get(Calendar.HOUR_OF_DAY)
+            val minute = calendar.get(Calendar.MINUTE)
+            val second = calendar.get(Calendar.SECOND)
+            val timeString = String.format("%02d-%02d-%02d-%02d", day, hour, minute, second)
+
+
+            reference.child("${timeString}.txt").putBytes(dataString.toByteArray()).addOnSuccessListener{ Toast.makeText(this, "success", Toast.LENGTH_SHORT)}
+
+        }
 
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
 
+            if(count!=-1){
+                //call add
+                addData(eyeCor,prevCor)
+            }
+            prevCor[0] = predCor[0]
+            prevCor[1] = predCor[1]
+            if(dataGen.size >0)
+            if(dataGen[0][1][0]==0.0f){
+                dataGen.clear()
+            }
+//            if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PERMISSION_GRANTED){}
+
+            val fakedata = dataGen
+            val fakePrev = prevCor
+            count = dataGen.size
+            activityCameraBinding.count!!.text = count.toString()
             val splitY = Math.random()
             var y: Float = 0f
             if(splitY < 0.6)
-                y = Math.random().toFloat() * 0.4f + 0.6f
+                y = Math.random().toFloat() * 0.36f + 0.6f
             else
-                y= Math.random().toFloat() * 0.4f
-            val x: Float = Math.random().toFloat()
-
+                y= Math.random().toFloat() * 0.6f
+            val x: Float = Math.random().toFloat() * 0.96f
+            predCor[0] = x
+            predCor[1] = y
             (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
                 topMargin = (y*activityCameraBinding.viewFinder.height).toInt()
                 leftMargin = (x*activityCameraBinding.viewFinder.width).toInt()
@@ -203,32 +250,7 @@ class CameraActivity : AppCompatActivity() {
             }
             pauseAnalysis = false
             // Disable all camera controls
-//            it.isEnabled = false
-//
-//            //set circle
-////            val redDot: ImageView = findViewById(R.id.circle)
-//
-//            if (pauseAnalysis) {
-//                // If image analysis is in paused state, resume it
-//                pauseAnalysis = false
-//                activityCameraBinding.imagePredicted.visibility = View.GONE
-//
-//            } else {
-//                // Otherwise, pause image analysis and freeze image
-//                pauseAnalysis = true
-//                val matrix = Matrix().apply {
-//                    postRotate(imageRotationDegrees.toFloat())
-//                    if (isFrontFacing) postScale(-1f, 1f)
-//                }
-//                val uprightImage = Bitmap.createBitmap(
-//                    bitmapBuffer, 0, 0, bitmapBuffer.width, bitmapBuffer.height, matrix, true)
-//                activityCameraBinding.imagePredicted.setImageBitmap(uprightImage)
-//
-//                activityCameraBinding.imagePredicted.visibility = View.VISIBLE
-//            }
-//
-//            // Re-enable camera controls
-//            it.isEnabled = true
+
         }
     }
 
@@ -592,11 +614,12 @@ class CameraActivity : AppCompatActivity() {
 //                    for(i in 0 until 2){
 //                        for(j in 0 until 9){
 //
-//                                rotatedBitmap.setPixel((eyeCor[i][0][j]).toInt(),(eyeCor[i][1][j]).toInt(),red)
+    //                                rotatedBitmap.setPixel((eyeCor[i][0][j]).toInt(),(eyeCor[i][1][j]).toInt(),red)
 //                        }
 //                    }
 //
 //                    irisBitmaps[0] = rotatedBitmap
+                    val fakedata = dataGen
                     reportTry(ddd[maxScoreIndex].data, outputMapLandmark[1]?.get(0)?.get(0)!![0][0], irisBitmaps)
 
 
@@ -680,7 +703,8 @@ class CameraActivity : AppCompatActivity() {
 
         // Update the text and UI
 //        activityCameraBinding.textPrediction.text = "${location.top},${location.left},${location.bottom},${location.right}"
-        activityCameraBinding.textPrediction.text = "${score}"
+
+        activityCameraBinding.textPrediction.text = "${prevCor[0]}  ${eyeCor[0][1][0]}"
 
         (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
             topMargin = location.top.toInt()
