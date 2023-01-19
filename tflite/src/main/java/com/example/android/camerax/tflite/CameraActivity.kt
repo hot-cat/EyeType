@@ -44,6 +44,7 @@ import kotlin.random.Random
 /** Activity that displays the camera and performs object detection on the incoming frames */
 class CameraActivity : AppCompatActivity() {
 
+    lateinit var ddd: Array<Detection>
     private lateinit var activityCameraBinding: ActivityCameraBinding
 
 
@@ -161,9 +162,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
-    var prevX = -1
-    var prevY = -1
-    var prevWidth = -1
+
 
     fun faceDetection (){
 
@@ -350,7 +349,7 @@ class CameraActivity : AppCompatActivity() {
                 val myArr: IntArray = intArrayOf(1,128,128,3)
                 newImage.apply { load(fpixels, myArr) }
 
-
+                if(outputMapLandmark[1]!![0][0][0][0]<42f){
                 faceDetection.runForMultipleInputsOutputs(arrayOf(newImage.buffer),outputMap )
 
 //                transformFaceDetectionOutputs()
@@ -358,13 +357,14 @@ class CameraActivity : AppCompatActivity() {
                 val helperFaceDetection = FaceDetection()
                 val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
                 val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
-                var ddd = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
+                ddd = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
                 val pruned = NMS.non_maximum_suppression(ddd.toMutableList(),  0.3f,
                     0.5f // you can set this to whatever threshold you want
                     ,
                     true)
                     val old = ddd
                 ddd = pruned.toTypedArray()
+                }
 
                 if(ddd.size > 0){
 //                    var maxScore = -1f
@@ -642,7 +642,7 @@ class CameraActivity : AppCompatActivity() {
                     val now = System.currentTimeMillis()
                     val delta = now - lastFpsTimestamp
                     val fps = 1000 * frameCount.toFloat() / delta
-                    Log.d(TAG,  "${ddd.size}  ${old.size}")
+                    Log.d(TAG,  "${ddd.size}" )
 //                    Log.d(TAG, "FPS: ${"%.02f".format(fps)} with tensorSize: ${tfImage.width} x ${tfImage.height}")
                     lastFpsTimestamp = now
                 }
