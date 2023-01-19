@@ -33,6 +33,8 @@ import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.image.ops.ResizeWithCropOrPadOp
 import org.tensorflow.lite.support.image.ops.Rot90Op
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -125,7 +127,7 @@ class CameraActivity : AppCompatActivity() {
     }
     private val corPos by lazy {
         Interpreter(
-            FileUtil.loadMappedFile(this, "tfliteV2.tflite"),
+            FileUtil.loadMappedFile(this, "tflite.tflite"),
             Interpreter.Options().addDelegate(nnApiDelegate)
         )
     }
@@ -593,16 +595,31 @@ class CameraActivity : AppCompatActivity() {
 
 
                     }
+                    val eyeSpread = ArrayList<Float>()
 
-//                    rotatedBitmap = Bitmap.createScaledBitmap(rotatedBitmap, rotatedBitmap.width /3, rotatedBitmap.height /3, true)
-//                    for(i in 0 until 2){
-//                        for(j in 0 until 9){
-//
-//                                rotatedBitmap.setPixel((eyeCor[i][0][j]).toInt(),(eyeCor[i][1][j]).toInt(),red)
-//                        }
-//                    }
-//
-//                    irisBitmaps[0] = rotatedBitmap
+                    for(i in 0 until 2)
+                        for (j in 0 until eyeCor[i][0].size){
+                            eyeSpread.add(eyeCor[i][0][j])
+                            eyeSpread.add(eyeCor[i][1][j])
+                        }
+                    val dataNow = ArrayList<ArrayList<Float>>()
+                    dataNow.addAll(listOf(eyeSpread))
+                    val corOutput = Array(1) { FloatArray(2) }
+                    val myFloatArray = dataNow[0].toFloatArray()
+
+                    val myByteBuffer = ByteBuffer.allocateDirect(44 * 4) // 4 bytes per float
+                        .order(ByteOrder.nativeOrder())
+                        .asFloatBuffer()
+                        .put(myFloatArray)
+
+                    corPos.run(myByteBuffer,corOutput)
+                    (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                        topMargin = (corOutput[0][1]*activityCameraBinding.viewFinder.height).toInt()
+                        leftMargin = (corOutput[0][0]*activityCameraBinding.viewFinder.width).toInt()
+
+                    }
+
+
                     reportTry(ddd[maxScoreIndex].data, outputMapLandmark[1]?.get(0)?.get(0)!![0][0], irisBitmaps)
 
 
@@ -645,6 +662,25 @@ class CameraActivity : AppCompatActivity() {
 
         }, ContextCompat.getMainExecutor(this))
     }
+
+//        fun addData(eyeCor: Array<Array<ArrayList<Float>>>){
+//            //add to dataGen
+//            val eyeSpread = ArrayList<Float>()
+//
+//            for(i in 0 until 2)
+//                for (j in 0 until eyeCor[i][0].size){
+//                    eyeSpread.add(eyeCor[i][0][j])
+//                    eyeSpread.add(eyeCor[i][1][j])
+//                }
+//            val dataNow = ArrayList<ArrayList<Float>>()
+//            dataNow.addAll(listOf(eyeSpread))
+//            val dataString = dataNow.joinToString(" ") {
+//                it.toString()
+//
+//        }
+//
+//        }
+
     fun generateFloatArray(num: Int): FloatArray {
         return floatArrayOf(num*3f, ((num*3)+1f), ((num*3)+2f))
     }
@@ -694,11 +730,7 @@ class CameraActivity : AppCompatActivity() {
             width = min(activityCameraBinding.viewFinder.width, location.right.toInt() - location.left.toInt())
             height = min(activityCameraBinding.viewFinder.height, location.bottom.toInt() - location.top.toInt())
         }
-        (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
-            topMargin = (0.5*activityCameraBinding.viewFinder.height).toInt()
-            leftMargin = (0.5*activityCameraBinding.viewFinder.width).toInt()
 
-        }
 
 
         // Make sure all UI elements are visible
