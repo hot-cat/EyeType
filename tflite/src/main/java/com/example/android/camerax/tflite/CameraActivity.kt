@@ -16,6 +16,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -186,10 +188,13 @@ class CameraActivity : AppCompatActivity() {
 //    }
 
 
+    lateinit var square: View
 
+    var firstView = true
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activityCameraBinding = ActivityCameraBinding.inflate(layoutInflater)
+
         setContentView(activityCameraBinding.root)
         faceDetection()
         faceLandmark.allocateTensors()
@@ -199,8 +204,36 @@ class CameraActivity : AppCompatActivity() {
 //        activityCameraBinding.circle!!.setVerticalBias(0.7)
 
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
+            if(firstView){
+            square = View(this)
+            square.setBackgroundColor(Color.argb(127, 255, 0, 0))
+            square.setId(View.generateViewId());
+                val layoutParams = ConstraintLayout.LayoutParams(activityCameraBinding.viewFinder.width/2, activityCameraBinding.viewFinder.height/4)
+                square.layoutParams = layoutParams
+                activityCameraBinding.root.addView(square)
+                val constraintSet = ConstraintSet()
+                constraintSet.clone(activityCameraBinding.root)
+                constraintSet.connect(
+                    square.id,
+                    ConstraintSet.START,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.START
+                )
+                constraintSet.connect(
+                    square.id,
+                    ConstraintSet.TOP,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.TOP
+                )
+                constraintSet.applyTo(activityCameraBinding.root)
 
 
+                firstView = false
+
+//
+
+
+            }
 //            val splitY = Math.random()
 //            var y: Float = 0f
 //            if(splitY < 0.6)
@@ -609,36 +642,56 @@ class CameraActivity : AppCompatActivity() {
                         for (i in 0 until 2)
                             for (j in 0 until eyeCor[i][0].size) {
                                 eyeSpread.add(eyeCor[i][0][j])
+                                eyeSpread.add(eyeCor[i][1][j])
                             }
                         val dataNow = ArrayList<ArrayList<Float>>()
                         dataNow.addAll(listOf(eyeSpread))
-                        val corOutput = Array(1) { FloatArray(15) }
+                        val corOutput = Array(1) { FloatArray(8) }
                         val myFloatArray = dataNow[0].toFloatArray()
 
-                        val myByteBuffer = ByteBuffer.allocateDirect(22 * 4) // 4 bytes per float
+                        val myByteBuffer = ByteBuffer.allocateDirect(44 * 4) // 4 bytes per float
                             .order(ByteOrder.nativeOrder())
                             .asFloatBuffer()
                             .put(myFloatArray)
-                        if(i == 0) {
-                            corPos.run(myByteBuffer, corOutput)
-                            var index = 0
-                            for(i in 0 until 15){
-                                if(corOutput[0][i]>corOutput[0][index]){
-                                    index = i
-                                }
-                            }
-                            corX = (index*7)/100f
+//                        if(i == 0) {
+//                            corPos.run(myByteBuffer, corOutput)
+//                            var index = 0
+//                            for(i in 0 until 15){
+//                                if(corOutput[0][i]>corOutput[0][index]){
+//                                    index = i
+//                                }
+//                            }
+//                            corX = (index*7)/100f
+//
+//                        }else {
+//                            YcorPos.run(myByteBuffer, corOutput)
+//                            var index = 0
+//                            for(i in 0 until 15){
+//                                if(corOutput[0][i]>corOutput[0][index]){
+//                                    index = i
+//                                }
+//                            }
+//                            corY = (index*7)/100f
+//                        }
 
-                        }else {
-                            YcorPos.run(myByteBuffer, corOutput)
+
+
+                        if(!firstView){
+
+
+                            corPos.run(myByteBuffer, corOutput)
+                            val copie = corOutput
                             var index = 0
-                            for(i in 0 until 15){
-                                if(corOutput[0][i]>corOutput[0][index]){
-                                    index = i
-                                }
+                            for(i in 0 until corOutput[0].size){
+                            if(corOutput[0][i]>corOutput[0][index]){
+                                index=i
                             }
-                            corY = (index*7)/100f
                         }
+                        (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            topMargin = ((index/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
+                            leftMargin = ((index%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+
+                        }}
 
                     }
                     (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
@@ -646,6 +699,7 @@ class CameraActivity : AppCompatActivity() {
                         leftMargin = (corX*activityCameraBinding.viewFinder.width).toInt()
 
                     }
+
 
 
                     reportTry(ddd[maxScoreIndex].data, outputMapLandmark[1]?.get(0)?.get(0)!![0][0], irisBitmaps)
