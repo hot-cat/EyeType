@@ -2,20 +2,14 @@ package com.example.android.camerax.tflite
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.*
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.os.Environment.DIRECTORY_MUSIC
-import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
@@ -30,19 +24,14 @@ import com.example.android.camerax.tflite.faceDetection.FaceDetection
 import com.example.android.camerax.tflite.tools.types.Detection
 import com.example.android.camerax.tflite.tools.types.NMS
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.nnapi.NnApiDelegate
 import org.tensorflow.lite.support.common.FileUtil
 import org.tensorflow.lite.support.image.TensorImage
-import java.io.File
-import java.io.FileWriter
-import java.net.URL
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import kotlin.collections.ArrayList
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -131,7 +120,8 @@ class CameraActivity : AppCompatActivity() {
         faceDetection.allocateTensors()
 
     }
-
+    var eyeCx = Array(14) { 0 }
+    var eyeCy = Array(14) { 0 }
     var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
     val predCor: FloatArray by lazy {
         val x = Math.random()
@@ -145,7 +135,7 @@ class CameraActivity : AppCompatActivity() {
 
     val dataGen = ArrayList<ArrayList<ArrayList<Float>>>()
 
-    fun addData(eyeCor: Array<Array<ArrayList<Float>>>, predCor: FloatArray){
+    fun addData(eyeCor: Array<Array<ArrayList<Float>>>, predCor: Array<Int>, predCor2: Array<Int>){
         //add to dataGen
         val eyeSpread = ArrayList<Float>()
 
@@ -155,13 +145,17 @@ class CameraActivity : AppCompatActivity() {
                 eyeSpread.add(eyeCor[i][1][j])
             }
         val dataNow = ArrayList<ArrayList<Float>>()
-        dataNow.addAll(listOf(eyeSpread))
-        val predList =ArrayList<Float>()
-        for(i in 0 until predCor.size)
-            predList.add(predCor[i])
-        dataNow.addAll(listOf(predList))
+        if(eyeSpread.size == 44) {
+            dataNow.addAll(listOf(eyeSpread))
+            val predList = ArrayList<Float>()
+            for (i in 0 until predCor.size)
+                predList.add(predCor[i].toFloat())
+            for (i in 0 until predCor2.size)
+                predList.add(predCor2[i].toFloat())
+            dataNow.addAll(listOf(predList))
 
-        dataGen.add(dataNow)
+            dataGen.add(dataNow)
+        }
     }
 
 
@@ -219,16 +213,47 @@ class CameraActivity : AppCompatActivity() {
         var x = 0.0f
         var y = 0.0f
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
-
+//            val square = View(this)
+//            square.setBackgroundColor(Color.RED)
+//            square.setId(View.generateViewId());
+//
+//            val layoutParams = ConstraintLayout.LayoutParams(100, 100)
+//            square.layoutParams = layoutParams
+//
+//
+//
+//            activityCameraBinding.root.addView(square)
+//
+//            val constraintSet = ConstraintSet()
+//            constraintSet.clone(activityCameraBinding.root)
+//
+//            constraintSet.connect(
+//                square.id,
+//                ConstraintSet.START,
+//                ConstraintSet.PARENT_ID,
+//                ConstraintSet.START
+//            )
+//            constraintSet.connect(
+//                square.id,
+//                ConstraintSet.TOP,
+//                ConstraintSet.PARENT_ID,
+//                ConstraintSet.TOP
+//            )
+//            constraintSet.applyTo(activityCameraBinding.root)
+//            (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
+//                topMargin = (0.5*activityCameraBinding.viewFinder.height).toInt()
+//                leftMargin = (0.5*activityCameraBinding.viewFinder.width).toInt()
+//
+//            }
 
             if(count!=-1){
                 //call add
-                addData(eyeCor,prevCor)
+                addData(eyeCor,eyeCx,eyeCy)
             }
             prevCor[0] = predCor[0]
             prevCor[1] = predCor[1]
             if(dataGen.size >0)
-            if(dataGen[0][1][0]==0.0f){
+            if(dataGen[0][1][0]==0.0f && dataGen[0][1][1]==0.0f){
                 dataGen.clear()
             }
 //            if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PERMISSION_GRANTED){}
@@ -250,6 +275,12 @@ class CameraActivity : AppCompatActivity() {
             } else x+= 0.07f
             predCor[0] = x
             predCor[1] = y
+            eyeCx = Array(14) { 0 }
+            eyeCy = Array(14) { 0 }
+            eyeCx[ (x*100).toInt()/7] = 1
+            eyeCy[ (y*100).toInt()/9] = 1
+            var proba1 = eyeCx
+            var proba2 = eyeCy
             (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
                 topMargin = (y*activityCameraBinding.viewFinder.height).toInt()
                 leftMargin = (x*activityCameraBinding.viewFinder.width).toInt()
