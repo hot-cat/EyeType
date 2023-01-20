@@ -137,6 +137,7 @@ class CameraActivity : AppCompatActivity() {
 
     val dataGen = ArrayList<ArrayList<ArrayList<Float>>>()
     var squares8 = Array(8) { 0f }
+    var prevsquares8 = Array(8) { 0f }
     fun addData(eyeCor: Array<Array<ArrayList<Float>>>, predCor: Array<Int>, predCor2: Array<Int>){
         //add to dataGen
         val eyeSpread = ArrayList<Float>()
@@ -154,7 +155,7 @@ class CameraActivity : AppCompatActivity() {
 //                predList.add(predCor[i].toFloat())
 //            for (i in 0 until predCor2.size)
 //                predList.add(predCor2[i].toFloat())
-            predList.addAll(squares8)
+            predList.addAll(prevsquares8)
             dataNow.addAll(listOf(predList))
             dataGen.add(dataNow)
         }
@@ -217,6 +218,7 @@ class CameraActivity : AppCompatActivity() {
         var x = 0.0f
         var y = 0.0f
         val square = View(this)
+
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
             square.setBackgroundColor(Color.argb(127, 255, 0, 0))
@@ -245,15 +247,7 @@ class CameraActivity : AppCompatActivity() {
                 ConstraintSet.PARENT_ID,
                 ConstraintSet.TOP
             )
-            constraintSet.applyTo(activityCameraBinding.root)
-            squares8 = Array(8) { 0f }
-            val randomNumber = Random.nextInt(0, 8)
-            squares8[randomNumber] = 1f
-            (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                topMargin = ((randomNumber/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
-                leftMargin = ((randomNumber%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
 
-            }
 
             if(count!=-1){
                 //call add
@@ -265,6 +259,17 @@ class CameraActivity : AppCompatActivity() {
             if(firstData){
                 firstData = false
                 dataGen.clear()
+            }
+            constraintSet.applyTo(activityCameraBinding.root)
+            prevsquares8 = squares8
+            squares8 = Array(8) { 0f }
+            val randomNumber = 0 + (Math.random() * ((7 - 0) + 1)).toInt()
+
+            squares8[randomNumber] = 1f
+            (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                topMargin = ((randomNumber/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
+                leftMargin = ((randomNumber%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+
             }
 //            if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PERMISSION_GRANTED){}
 
@@ -767,7 +772,7 @@ class CameraActivity : AppCompatActivity() {
         // Update the text and UI
 //        activityCameraBinding.textPrediction.text = "${location.top},${location.left},${location.bottom},${location.right}"
 
-        activityCameraBinding.textPrediction.text = "${prevCor[0]}  ${eyeCor[0][1][0]}"
+        activityCameraBinding.textPrediction.text = "${score}  ${eyeCor[0][1][0]}"
 
         (activityCameraBinding.boxPrediction.layoutParams as ViewGroup.MarginLayoutParams).apply {
             topMargin = location.top.toInt()
