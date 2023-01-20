@@ -487,7 +487,7 @@ class CameraActivity : AppCompatActivity() {
 
                     faceLandmark.runForMultipleInputsOutputs(arrayOf(newImageL.buffer),outputMapLandmark )
                     val checkin = outputMapLandmark[1]!![0][0][0][0]
-                    if(outputMapLandmark[1]!![0][0][0][0]>45f || times == 1){
+                    if(outputMapLandmark[1]!![0][0][0][0]>30f || times == 1){
                         pauseAnalysis = true
 
                     for(i in 0..1403    step 3) {
