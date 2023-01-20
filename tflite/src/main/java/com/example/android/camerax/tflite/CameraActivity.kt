@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.android.example.camerax.tflite.databinding.ActivityCameraBinding
 import com.example.android.camerax.tflite.faceDetection.FaceDetection
+import com.example.android.camerax.tflite.tools.types.Detection
 import com.example.android.camerax.tflite.tools.types.NMS
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
@@ -49,6 +50,7 @@ import kotlin.random.Random
 /** Activity that displays the camera and performs object detection on the incoming frames */
 class CameraActivity : AppCompatActivity() {
 
+    lateinit var ddd: Array<Detection>
     private lateinit var activityCameraBinding: ActivityCameraBinding
 
 
@@ -178,7 +180,7 @@ class CameraActivity : AppCompatActivity() {
 //            e.printStackTrace()
 //        }
 //    }
-
+    var firstAtAll = true
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -214,7 +216,8 @@ class CameraActivity : AppCompatActivity() {
             reference.child("${timeString}.txt").putBytes(dataString.toByteArray()).addOnSuccessListener{ Toast.makeText(this, "success", Toast.LENGTH_SHORT)}
 
         }
-
+        var x = 0.0f
+        var y = 0.0f
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
 
 
@@ -234,13 +237,17 @@ class CameraActivity : AppCompatActivity() {
             val fakePrev = prevCor
             count = dataGen.size
             activityCameraBinding.count!!.text = count.toString()
-            val splitY = Math.random()
-            var y: Float = 0f
-            if(splitY < 0.6)
-                y = Math.random().toFloat() * 0.36f + 0.6f
-            else
-                y= Math.random().toFloat() * 0.6f
-            val x: Float = Math.random().toFloat() * 0.96f
+//            val splitY = Math.random()
+//            var y: Float = 0f
+//            if(splitY < 0.6)
+//                y = Math.random().toFloat() * 0.36f + 0.6f
+//            else
+//                y= Math.random().toFloat() * 0.6f
+//            val x: Float = Math.random().toFloat() * 0.96f
+            if(x >= 0.91f){
+                x = 0.00f
+                y+= 0.09f
+            } else x+= 0.07f
             predCor[0] = x
             predCor[1] = y
             (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
@@ -312,7 +319,7 @@ class CameraActivity : AppCompatActivity() {
                     image.close()
                     return@Analyzer
                 }
-                pauseAnalysis = true
+
 //                if()
                 // Copy out RGB bits to our shared buffer
                 image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer)  }
@@ -364,22 +371,31 @@ class CameraActivity : AppCompatActivity() {
                 val myArr: IntArray = intArrayOf(1,128,128,3)
                 newImage.apply { load(fpixels, myArr) }
 
+                var firstGetLandmarks = false
+                var times = 0
+                while(pauseAnalysis == false){
 
-                faceDetection.runForMultipleInputsOutputs(arrayOf(newImage.buffer),outputMap )
+                if((firstGetLandmarks || firstAtAll) && times == 0) {
+                    times ++
+                    firstAtAll = false
+                    faceDetection.runForMultipleInputsOutputs(arrayOf(newImage.buffer), outputMap)
 
 //                transformFaceDetectionOutputs()
 
-                val helperFaceDetection = FaceDetection()
-                val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
-                val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
-                var ddd = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
-                val pruned = NMS.non_maximum_suppression(ddd.toMutableList(),  0.3f,
-                    0.5f // you can set this to whatever threshold you want
-                    ,
-                    true)
+                    val helperFaceDetection = FaceDetection()
+                    val boxes = helperFaceDetection.decodeBoxes(outputMap[0])
+                    val scores = helperFaceDetection.getSigmoidScores(outputMap[1])
+                    ddd = helperFaceDetection.convertToDetections(boxes, scores).toTypedArray()
+                    val pruned = NMS.non_maximum_suppression(
+                        ddd.toMutableList(), 0.3f,
+                        0.5f // you can set this to whatever threshold you want
+                        ,
+                        true
+                    )
                     val old = ddd
-                ddd = pruned.toTypedArray()
-
+                    ddd = pruned.toTypedArray()
+                }
+                    firstGetLandmarks = true
                 if(ddd.size > 0){
 //                    var maxScore = -1f
 //                    var maxScoreIndex = -1
@@ -470,15 +486,21 @@ class CameraActivity : AppCompatActivity() {
                     newImageL.apply { load(lpixels, myArrL) }
 
                     faceLandmark.runForMultipleInputsOutputs(arrayOf(newImageL.buffer),outputMapLandmark )
-                    val proba = outputMapLandmark
-//                    for(i in 0..1403    step 3) {
-//                        if(outputMapLandmark[0]!![0][0][0][i].toInt()<landmarkBitmap.width
-//                            && outputMapLandmark[0]!![0][0][0][i+1].toInt()<landmarkBitmap.height)
-//                        landmarkBitmap.setPixel(
-//                            outputMapLandmark[0]!![0][0][0][i].toInt(),
-//                            outputMapLandmark[0]!![0][0][0][i+1].toInt(), color
-//                        )
-//                    }
+                    val checkin = outputMapLandmark[1]!![0][0][0][0]
+                    if(outputMapLandmark[1]!![0][0][0][0]>45f || times == 1){
+                        pauseAnalysis = true
+
+                    for(i in 0..1403    step 3) {
+                        if(outputMapLandmark[0]!![0][0][0][i].toInt()<landmarkBitmap.width
+                            && outputMapLandmark[0]!![0][0][0][i+1].toInt()<landmarkBitmap.height && outputMapLandmark[0]!![0][0][0][i].toInt()>0
+                            && outputMapLandmark[0]!![0][0][0][i+1].toInt()>0){
+                            landmarkBitmap.setPixel(
+                                outputMapLandmark[0]!![0][0][0][i].toInt(),
+                                outputMapLandmark[0]!![0][0][0][i+1].toInt(), color)
+                        } else pauseAnalysis = false
+
+
+                    }
 //                   //33, 133
                     //, 362, 263
                     val numbers = intArrayOf(33, 133,362, 263)
@@ -621,8 +643,8 @@ class CameraActivity : AppCompatActivity() {
 //                    irisBitmaps[0] = rotatedBitmap
                     val fakedata = dataGen
                     reportTry(ddd[maxScoreIndex].data, outputMapLandmark[1]?.get(0)?.get(0)!![0][0], irisBitmaps)
-
-
+                    }
+                }
 //                    android.setImageBitmap(landmarkBitmap)
 
                 }
@@ -642,7 +664,7 @@ class CameraActivity : AppCompatActivity() {
                     val now = System.currentTimeMillis()
                     val delta = now - lastFpsTimestamp
                     val fps = 1000 * frameCount.toFloat() / delta
-                    Log.d(TAG,  "${ddd.size}  ${old.size}")
+                    Log.d(TAG,  "${ddd.size}  ")
 //                    Log.d(TAG, "FPS: ${"%.02f".format(fps)} with tensorSize: ${tfImage.width} x ${tfImage.height}")
                     lastFpsTimestamp = now
                 }
