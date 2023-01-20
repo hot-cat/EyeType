@@ -16,6 +16,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -134,7 +136,7 @@ class CameraActivity : AppCompatActivity() {
     var count = -1
 
     val dataGen = ArrayList<ArrayList<ArrayList<Float>>>()
-
+    var squares8 = Array(8) { 0f }
     fun addData(eyeCor: Array<Array<ArrayList<Float>>>, predCor: Array<Int>, predCor2: Array<Int>){
         //add to dataGen
         val eyeSpread = ArrayList<Float>()
@@ -148,12 +150,12 @@ class CameraActivity : AppCompatActivity() {
         if(eyeSpread.size == 44) {
             dataNow.addAll(listOf(eyeSpread))
             val predList = ArrayList<Float>()
-            for (i in 0 until predCor.size)
-                predList.add(predCor[i].toFloat())
-            for (i in 0 until predCor2.size)
-                predList.add(predCor2[i].toFloat())
+//            for (i in 0 until predCor.size)
+//                predList.add(predCor[i].toFloat())
+//            for (i in 0 until predCor2.size)
+//                predList.add(predCor2[i].toFloat())
+            predList.addAll(squares8)
             dataNow.addAll(listOf(predList))
-
             dataGen.add(dataNow)
         }
     }
@@ -175,6 +177,8 @@ class CameraActivity : AppCompatActivity() {
 //        }
 //    }
     var firstAtAll = true
+    var firstData = true
+    var firstView = true
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -212,39 +216,44 @@ class CameraActivity : AppCompatActivity() {
         }
         var x = 0.0f
         var y = 0.0f
+        val square = View(this)
         activityCameraBinding.cameraCaptureButton.setOnClickListener {
-//            val square = View(this)
-//            square.setBackgroundColor(Color.RED)
-//            square.setId(View.generateViewId());
-//
-//            val layoutParams = ConstraintLayout.LayoutParams(100, 100)
-//            square.layoutParams = layoutParams
-//
-//
-//
-//            activityCameraBinding.root.addView(square)
-//
-//            val constraintSet = ConstraintSet()
-//            constraintSet.clone(activityCameraBinding.root)
-//
-//            constraintSet.connect(
-//                square.id,
-//                ConstraintSet.START,
-//                ConstraintSet.PARENT_ID,
-//                ConstraintSet.START
-//            )
-//            constraintSet.connect(
-//                square.id,
-//                ConstraintSet.TOP,
-//                ConstraintSet.PARENT_ID,
-//                ConstraintSet.TOP
-//            )
-//            constraintSet.applyTo(activityCameraBinding.root)
-//            (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
-//                topMargin = (0.5*activityCameraBinding.viewFinder.height).toInt()
-//                leftMargin = (0.5*activityCameraBinding.viewFinder.width).toInt()
-//
-//            }
+
+            square.setBackgroundColor(Color.argb(127, 255, 0, 0))
+            square.setId(View.generateViewId());
+
+            val layoutParams = ConstraintLayout.LayoutParams(activityCameraBinding.viewFinder.width/2, activityCameraBinding.viewFinder.height/4)
+            square.layoutParams = layoutParams
+
+
+            if(firstView){
+                firstView = false
+            activityCameraBinding.root.addView(square)}
+
+            val constraintSet = ConstraintSet()
+            constraintSet.clone(activityCameraBinding.root)
+
+            constraintSet.connect(
+                square.id,
+                ConstraintSet.START,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.START
+            )
+            constraintSet.connect(
+                square.id,
+                ConstraintSet.TOP,
+                ConstraintSet.PARENT_ID,
+                ConstraintSet.TOP
+            )
+            constraintSet.applyTo(activityCameraBinding.root)
+            squares8 = Array(8) { 0f }
+            val randomNumber = Random.nextInt(0, 8)
+            squares8[randomNumber] = 1f
+            (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                topMargin = ((randomNumber/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
+                leftMargin = ((randomNumber%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+
+            }
 
             if(count!=-1){
                 //call add
@@ -253,7 +262,8 @@ class CameraActivity : AppCompatActivity() {
             prevCor[0] = predCor[0]
             prevCor[1] = predCor[1]
             if(dataGen.size >0)
-            if(dataGen[0][1][0]==0.0f && dataGen[0][1][1]==0.0f){
+            if(firstData){
+                firstData = false
                 dataGen.clear()
             }
 //            if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PERMISSION_GRANTED){}
