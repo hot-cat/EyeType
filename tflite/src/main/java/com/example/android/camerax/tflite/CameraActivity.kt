@@ -132,6 +132,12 @@ class CameraActivity : AppCompatActivity() {
             Interpreter.Options().addDelegate(nnApiDelegate)
         )
     }
+    private val YcorPos by lazy {
+        Interpreter(
+            FileUtil.loadMappedFile(this, "tflite.tflite"),
+            Interpreter.Options().addDelegate(nnApiDelegate)
+        )
+    }
     //this is the output of the tflite model for face detection
      val outputMap: Map<Int, Array<Array<FloatArray>>> by lazy {
         val shape0: IntArray = faceDetection.getOutputTensor(0).shape()
@@ -595,27 +601,40 @@ class CameraActivity : AppCompatActivity() {
 
 
                     }
-                    val eyeSpread = ArrayList<Float>()
+                    var corX = 0.0f
+                    var corY = 0.0f
+                    for( i in 0 until 2){
+                        val eyeSpread = ArrayList<Float>()
 
-                    for(i in 0 until 2)
-                        for (j in 0 until eyeCor[i][0].size){
-                            eyeSpread.add(eyeCor[i][0][j])
-                            eyeSpread.add(eyeCor[i][1][j])
-                        }
-                    val dataNow = ArrayList<ArrayList<Float>>()
-                    dataNow.addAll(listOf(eyeSpread))
-                    val corOutput = Array(1) { FloatArray(2) }
-                    val myFloatArray = dataNow[0].toFloatArray()
+                        for (i in 0 until 2)
+                            for (j in 0 until eyeCor[i][0].size) {
+                                eyeSpread.add(eyeCor[i][0][j])
+                            }
+                        val dataNow = ArrayList<ArrayList<Float>>()
+                        dataNow.addAll(listOf(eyeSpread))
+                        val corOutput = Array(1) { FloatArray(15) }
+                        val myFloatArray = dataNow[0].toFloatArray()
 
-                    val myByteBuffer = ByteBuffer.allocateDirect(44 * 4) // 4 bytes per float
-                        .order(ByteOrder.nativeOrder())
-                        .asFloatBuffer()
-                        .put(myFloatArray)
+                        val myByteBuffer = ByteBuffer.allocateDirect(22 * 4) // 4 bytes per float
+                            .order(ByteOrder.nativeOrder())
+                            .asFloatBuffer()
+                            .put(myFloatArray)
+                        if(i == 0) {
+                            corPos.run(myByteBuffer, corOutput)
+                            var index = 0
+                            for(i in 0 until 14){
+                                if(corOutput[0][i]>corOutput[0][index]){
+                                    index = i
+                                }
+                            }
 
-                    corPos.run(myByteBuffer,corOutput)
+                        }else {
+                            YcorPos.run(myByteBuffer, corOutput)}
+
+                    }
                     (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                        topMargin = (corOutput[0][1]*activityCameraBinding.viewFinder.height).toInt()
-                        leftMargin = (corOutput[0][0]*activityCameraBinding.viewFinder.width).toInt()
+                        topMargin = (corX*activityCameraBinding.viewFinder.height).toInt()
+                        leftMargin = (corX*activityCameraBinding.viewFinder.width).toInt()
 
                     }
 
