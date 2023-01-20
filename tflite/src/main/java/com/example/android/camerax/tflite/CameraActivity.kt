@@ -120,8 +120,10 @@ class CameraActivity : AppCompatActivity() {
         faceDetection.allocateTensors()
 
     }
-    var eyeCx = Array(14) { 0 }
-    var eyeCy = Array(14) { 0 }
+    var indexX = 0
+    var indexY = 0
+    var eyeCx = Array(15) { 0 }
+    var eyeCy = Array(15) { 0 }
     var eyeCor = Array(2){Array(2) { ArrayList<Float>() }}
     val predCor: FloatArray by lazy {
         val x = Math.random()
@@ -269,16 +271,19 @@ class CameraActivity : AppCompatActivity() {
 //            else
 //                y= Math.random().toFloat() * 0.6f
 //            val x: Float = Math.random().toFloat() * 0.96f
-            if(x >= 0.91f){
-                x = 0.00f
-                y+= 0.09f
-            } else x+= 0.07f
+            if(indexX >= 14){
+                indexX = 0
+                indexY += 1
+            }else
+                indexX+=1
+            x = (indexX*7)/100f
+            y = (indexY*9)/100f
             predCor[0] = x
             predCor[1] = y
-            eyeCx = Array(14) { 0 }
-            eyeCy = Array(14) { 0 }
-            eyeCx[ (x*100).toInt()/7] = 1
-            eyeCy[ (y*100).toInt()/9] = 1
+            eyeCx = Array(15) { 0 }
+            eyeCy = Array(15) { 0 }
+            eyeCx[ indexX] = 1
+            eyeCy[indexY] = 1
             var proba1 = eyeCx
             var proba2 = eyeCy
             (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
