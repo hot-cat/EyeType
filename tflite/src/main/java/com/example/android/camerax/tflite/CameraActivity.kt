@@ -21,7 +21,7 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.android.example.camerax.tflite.databinding.ActivityCameraBinding
+import com.android.example.camerax.classLandmark.databinding.ActivityCameraBinding
 import com.example.android.camerax.tflite.faceDetection.FaceDetection
 import com.example.android.camerax.tflite.tools.types.Detection
 import com.example.android.camerax.tflite.tools.types.NMS
