@@ -128,13 +128,13 @@ class CameraActivity : AppCompatActivity() {
     }
     private val corPos by lazy {
         Interpreter(
-            FileUtil.loadMappedFile(this, "tflite.tflite"),
+            FileUtil.loadMappedFile(this, "xlite.tflite"),
             Interpreter.Options().addDelegate(nnApiDelegate)
         )
     }
     private val YcorPos by lazy {
         Interpreter(
-            FileUtil.loadMappedFile(this, "tflite.tflite"),
+            FileUtil.loadMappedFile(this, "ylite.tflite"),
             Interpreter.Options().addDelegate(nnApiDelegate)
         )
     }
@@ -622,14 +622,23 @@ class CameraActivity : AppCompatActivity() {
                         if(i == 0) {
                             corPos.run(myByteBuffer, corOutput)
                             var index = 0
-                            for(i in 0 until 14){
+                            for(i in 0 until 15){
                                 if(corOutput[0][i]>corOutput[0][index]){
                                     index = i
                                 }
                             }
+                            corX = (index*7)/100f
 
                         }else {
-                            YcorPos.run(myByteBuffer, corOutput)}
+                            YcorPos.run(myByteBuffer, corOutput)
+                            var index = 0
+                            for(i in 0 until 15){
+                                if(corOutput[0][i]>corOutput[0][index]){
+                                    index = i
+                                }
+                            }
+                            corY = (index*7)/100f
+                        }
 
                     }
                     (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
