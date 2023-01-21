@@ -636,62 +636,72 @@ class CameraActivity : AppCompatActivity() {
                     }
                     var corX = 0.0f
                     var corY = 0.0f
-                    for( i in 0 until 2){
+                    var probaaaa = eyeCor
+                    if(!firstView){
+                    for( i in 0 until 2) {
                         val eyeSpread = ArrayList<Float>()
 
-                        for (i in 0 until 2)
-                            for (j in 0 until eyeCor[i][0].size) {
-                                eyeSpread.add(eyeCor[i][0][j])
-                                eyeSpread.add(eyeCor[i][1][j])
+                        for (d in 0 until 2)
+                            for (j in 0 until eyeCor[d][i].size) {
+                                eyeSpread.add(eyeCor[d][i][j])
                             }
                         val dataNow = ArrayList<ArrayList<Float>>()
                         dataNow.addAll(listOf(eyeSpread))
-                        val corOutput = Array(1) { FloatArray(8) }
+
                         val myFloatArray = dataNow[0].toFloatArray()
 
-                        val myByteBuffer = ByteBuffer.allocateDirect(44 * 4) // 4 bytes per float
+                        val myByteBuffer = ByteBuffer.allocateDirect(22 * 4) // 4 bytes per float
                             .order(ByteOrder.nativeOrder())
                             .asFloatBuffer()
                             .put(myFloatArray)
-//                        if(i == 0) {
-//                            corPos.run(myByteBuffer, corOutput)
-//                            var index = 0
-//                            for(i in 0 until 15){
-//                                if(corOutput[0][i]>corOutput[0][index]){
-//                                    index = i
-//                                }
-//                            }
-//                            corX = (index*7)/100f
-//
-//                        }else {
-//                            YcorPos.run(myByteBuffer, corOutput)
-//                            var index = 0
-//                            for(i in 0 until 15){
-//                                if(corOutput[0][i]>corOutput[0][index]){
-//                                    index = i
-//                                }
-//                            }
-//                            corY = (index*7)/100f
-//                        }
-
-
-
-                        if(!firstView){
-
-
+                        if(i == 0) {
+                            val corOutput = Array(1) { FloatArray(2) }
                             corPos.run(myByteBuffer, corOutput)
-                            val copie = corOutput
                             var index = 0
-                            for(i in 0 until corOutput[0].size){
-                            if(corOutput[0][i]>corOutput[0][index]){
-                                index=i
+                            for(d in 0 until 2){
+                                if(corOutput[0][d]>corOutput[0][index]){
+                                    index = d
+                                }
                             }
-                        }
-                        (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                            topMargin = ((index/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
-                            leftMargin = ((index%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+                            corX = index.toFloat()
 
+                        }else {
+                            val corOutput = Array(1) { FloatArray(4) }
+                            YcorPos.run(myByteBuffer, corOutput)
+                            var index = 0
+                            for(d in 0 until 4){
+                                if(corOutput[0][d]>corOutput[0][index]){
+                                    index = d
+                                }
+                            }
+                            corY = index.toFloat()
                         }}
+
+                        (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            topMargin = ((corY/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
+                            leftMargin = ((corX%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+
+                        }
+
+
+
+//                        if(!firstView){
+//
+//
+//                            corPos.run(myByteBuffer, corOutput)
+//                            val copie = corOutput
+//                            var index = 0
+//                            for(i in 0 until corOutput[0].size){
+//                            if(corOutput[0][i]>corOutput[0][index]){
+//                                index=i
+//                            }
+//                        }
+//                        (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
+//                            topMargin = ((index/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
+//                            leftMargin = ((index%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+//
+//                        }}
+
 
                     }
                     (activityCameraBinding.circle!!.layoutParams as ViewGroup.MarginLayoutParams).apply {
