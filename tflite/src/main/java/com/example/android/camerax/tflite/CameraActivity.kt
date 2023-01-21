@@ -642,14 +642,18 @@ class CameraActivity : AppCompatActivity() {
                         val eyeSpread = ArrayList<Float>()
 
                         for (d in 0 until 2)
-                            for (j in 0 until eyeCor[d][i].size) {
-                                eyeSpread.add(eyeCor[d][i][j])
+                            for (j in 0 until eyeCor[d][0].size) {
+                                eyeSpread.add(eyeCor[d][0][j])
                             }
                         val dataNow = ArrayList<ArrayList<Float>>()
                         dataNow.addAll(listOf(eyeSpread))
 
-                        val myFloatArray = dataNow[0].toFloatArray()
-
+                        var myFloatArray = dataNow[0].toFloatArray()
+//                        myFloatArray = floatArrayOf(0.518654f  , 0.38385364f, 0.36495036f, 0.27371278f, 0.28808138f,
+//                            0.49889028f, 0.50046015f, 0.58683383f, 0.71436024f, 0.54034674f,
+//                            0.4493941f , 0.42344135f, 0.47041386f, 0.48508275f, 0.57003176f,
+//                            0.47798193f, 0.4623714f , 0.38949686f, 0.36770037f, 0.4912837f ,
+//                            0.47760606f, 0.5795235f )
                         val myByteBuffer = ByteBuffer.allocateDirect(22 * 4) // 4 bytes per float
                             .order(ByteOrder.nativeOrder())
                             .asFloatBuffer()
@@ -678,8 +682,8 @@ class CameraActivity : AppCompatActivity() {
                         }}
 
                         (square.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                            topMargin = ((corY/2)*0.25*activityCameraBinding.viewFinder.height).toInt()
-                            leftMargin = ((corX%2)*0.5*activityCameraBinding.viewFinder.width).toInt()
+                            topMargin = (corY*0.25*activityCameraBinding.viewFinder.height).toInt()
+                            leftMargin = (corX*0.5*activityCameraBinding.viewFinder.width).toInt()
 
                         }
 
