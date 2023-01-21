@@ -639,10 +639,10 @@ class CameraActivity : AppCompatActivity() {
                     for( i in 0 until 2){
                         val eyeSpread = ArrayList<Float>()
 
-                        for (i in 0 until 2)
-                            for (j in 0 until eyeCor[i][0].size) {
-                                eyeSpread.add(eyeCor[i][0][j])
-                                eyeSpread.add(eyeCor[i][1][j])
+                        for (d in 0 until 2)
+                            for (j in 0 until eyeCor[d][0].size) {
+                                eyeSpread.add(eyeCor[d][0][j])
+                                eyeSpread.add(eyeCor[d][1][j])
                             }
                         val dataNow = ArrayList<ArrayList<Float>>()
                         dataNow.addAll(listOf(eyeSpread))
