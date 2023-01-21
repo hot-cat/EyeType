@@ -638,26 +638,56 @@ class CameraActivity : AppCompatActivity() {
                     var corY = 0.0f
                     var probaaaa = eyeCor
                     if(!firstView){
-                    for( i in 0 until 2) {
                         val eyeSpread = ArrayList<Float>()
+
+//                        for (d in 0 until 2)
+//                            for (j in 0 until eyeCor[d][0].size) {
+//                                eyeSpread.add(eyeCor[d][0][j])
+//                                eyeSpread.add(eyeCor[d][1][j])
+//                            }
+//                        val dataNow = ArrayList<ArrayList<Float>>()
+//                        dataNow.addAll(listOf(eyeSpread))
+//                        var myFloatArray = dataNow[0].toFloatArray()
+//                        var first22 = myFloatArray.copyOfRange(0, 22)
+//                        val last22 = myFloatArray.copyOfRange(22, 44)
+
+
+
 
                         for (d in 0 until 2)
                             for (j in 0 until eyeCor[d][0].size) {
                                 eyeSpread.add(eyeCor[d][0][j])
-                            }
-                        val dataNow = ArrayList<ArrayList<Float>>()
-                        dataNow.addAll(listOf(eyeSpread))
 
+                            }
+                        var dataNow = ArrayList<ArrayList<Float>>()
+                        dataNow.addAll(listOf(eyeSpread))
                         var myFloatArray = dataNow[0].toFloatArray()
+                        var first22 = myFloatArray
+                        for (d in 0 until 2)
+                            for (j in 0 until eyeCor[d][0].size) {
+                                eyeSpread.add(eyeCor[d][1][j])
+
+                            }
+                         dataNow = ArrayList<ArrayList<Float>>()
+                        dataNow.addAll(listOf(eyeSpread))
+                         myFloatArray = dataNow[0].toFloatArray()
+                        val last22 = myFloatArray.copyOfRange(22, 44)
+
+
+                    for( i in 0 until 2) {
+
 //                        myFloatArray = floatArrayOf(0.518654f  , 0.38385364f, 0.36495036f, 0.27371278f, 0.28808138f,
 //                            0.49889028f, 0.50046015f, 0.58683383f, 0.71436024f, 0.54034674f,
 //                            0.4493941f , 0.42344135f, 0.47041386f, 0.48508275f, 0.57003176f,
 //                            0.47798193f, 0.4623714f , 0.38949686f, 0.36770037f, 0.4912837f ,
 //                            0.47760606f, 0.5795235f )
+                        if(i==1){
+                            first22 = last22
+                        }
                         val myByteBuffer = ByteBuffer.allocateDirect(22 * 4) // 4 bytes per float
                             .order(ByteOrder.nativeOrder())
                             .asFloatBuffer()
-                            .put(myFloatArray)
+                            .put(first22)
                         if(i == 0) {
                             val corOutput = Array(1) { FloatArray(2) }
                             corPos.run(myByteBuffer, corOutput)
